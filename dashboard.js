@@ -100,14 +100,15 @@
   function unterkonten(z, m, monatName, vormonat) {
     const mitBetrag = z.posten.filter(p => p.jetzt || p.vorher).sort((x, y) => y.jetzt - x.jetzt || y.vorher - x.vorher);
     const leer = z.posten.length - mitBetrag.length;
-    if (!mitBetrag.length) return '<div class="posten sub">In diesem Bereich ist für ' + monatName + ' nichts eingetragen.</div>';
+    if (!mitBetrag.length) return '<div class="unterposten sub">In diesem Bereich ist für ' + monatName + ' nichts eingetragen.</div>';
     const max = Math.max(1, ...mitBetrag.map(p => Math.max(p.jetzt, p.vorher)));
     const anteil = p => z.jetzt > 0 ? ' · ' + prozent(p.jetzt / z.jetzt * 100) + ' des Bereichs' : '';
-    return '<div class="posten">' + mitBetrag.map(p =>
+    return '<div class="unterposten">' + mitBetrag.map(p =>
       '<div class="pzeile"><div class="vkopf"><span class="vname">' + esc(p.name) + (p.kat && p.kat !== p.name ? ' <span class="sub">(' + esc(p.kat) + ')</span>' : '') + '</span>' +
-      '<span class="betrag">' + euro(p.jetzt) + '</span></div>' +
-      '<div class="balken" style="width:' + Math.max(p.jetzt > 0 ? 1.5 : 0, p.jetzt / max * 100) + '%;background:' + z.farbe + '"></div>' +
-      '<div class="sub">' + (m > 1 ? (vormonat + ': ' + euro(p.vorher) + ' · ' + veraenderung(p.jetzt, p.vorher)) : '') + anteil(p) + '</div></div>'
+      '<span class="sub">' + (m > 1 ? veraenderung(p.jetzt, p.vorher) : '') + '</span></div>' +
+      (m > 1 ? '<div class="balken grau" style="width:' + Math.max(p.vorher > 0 ? 1.5 : 0, p.vorher / max * 100) + '%" title="' + esc(vormonat + ': ' + euro(p.vorher)) + '"></div>' : '') +
+      '<div class="balken" style="width:' + Math.max(p.jetzt > 0 ? 1.5 : 0, p.jetzt / max * 100) + '%;background:' + z.farbe + '" title="' + esc(monatName + ': ' + euro(p.jetzt)) + '"></div>' +
+      '<div class="sub vwerte">' + (m > 1 ? vormonat + ': ' + euro(p.vorher) + ' → ' : '') + monatName + ': <b>' + euro(p.jetzt) + '</b>' + anteil(p) + '</div></div>'
     ).join('') + (leer ? '<div class="sub">' + leer + (leer === 1 ? ' weiterer Posten' : ' weitere Posten') + ' ohne Betrag</div>' : '') + '</div>';
   }
 

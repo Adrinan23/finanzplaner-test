@@ -102,7 +102,7 @@ details.vzeile > summary { list-style:none; cursor:pointer; }
 details.vzeile > summary::-webkit-details-marker { display:none; }
 .pfeil { display:inline-block; color:var(--muted); transition:transform .15s; }
 details[open] .pfeil { transform:rotate(90deg); }
-.posten { margin:8px 0 2px 12px; padding-left:10px; border-left:2px solid var(--line); }
+.unterposten { margin:8px 0 2px 12px; padding-left:10px; border-left:2px solid var(--line); }
 .pzeile { padding:6px 0; }
 .pzeile .balken { height:6px; }
 .hinweis-tipp { margin-top:8px; }
