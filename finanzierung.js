@@ -18,7 +18,14 @@
   const zahl = v => { const n = Number(String(v || '').replace(/\s|€|%/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')); return isFinite(n) ? n : 0; };
   const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
   const monatText = idx => MONATE[((idx % 12) + 12) % 12] + ' ' + Math.floor(idx / 12);
-  const monatIndex = s => { const m = /^(\d{4})-(\d{1,2})/.exec(String(s || '')); return m ? Number(m[1]) * 12 + Number(m[2]) - 1 : null; };
+  // "JJJJ-MM" (so speichert die App) oder eine Datumszahl der Tabelle (Tage seit 30.12.1899), falls direkt dort eingetippt
+  const monatIndex = s => {
+    const t = String(s === undefined || s === null ? '' : s).trim();
+    const m = /^(\d{4})-(\d{1,2})/.exec(t);
+    if (m) return Number(m[1]) * 12 + Number(m[2]) - 1;
+    if (/^\d{4,6}(\.\d+)?$/.test(t)) { const d = new Date(Date.UTC(1899, 11, 30) + Number(t) * 86400000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); }
+    return null;
+  };
 
   // Monatsrate: eingetragen, sonst aus Zins + anfänglicher Tilgung berechnet.
   function rateVon(d) {
@@ -54,21 +61,23 @@
     // bezahlte Raten: Monate seit Beginn (die Rate des laufenden Monats zählt erst ab dem nächsten)
     const bezahlt = start === null ? 0 : Math.max(0, Math.min(p.zeilen.length, jetzt - start));
     const bisher = p.zeilen.slice(0, bezahlt);
-    const restHeute = bezahlt ? bisher[bezahlt - 1].rest : d.summe;
+    const startetNoch = start !== null && start > jetzt;
+    // Noch nicht begonnene Darlehen (z. B. Forward) zählen heute nicht als Schuld
+    const restHeute = startetNoch ? 0 : (bezahlt ? bisher[bezahlt - 1].rest : d.summe);
     const naechste = p.zeilen[bezahlt] || null;
     const bindEnde = d.bindung > 0 ? Math.min(p.zeilen.length, d.bindung * 12) : 0;
     const restBindung = bindEnde ? p.zeilen[bindEnde - 1].rest : null;
     const fertig = p.deckt && p.zeilen.length && p.zeilen[p.zeilen.length - 1].rest <= 0.005;
     return {
       rate: p.rate, deckt: p.deckt,
-      rateAktuell: naechste && typ(d) === 'tilgung' ? naechste.zins + naechste.tilg : p.rate, restHeute, getilgt: d.summe - restHeute,
+      rateAktuell: naechste && typ(d) === 'tilgung' ? naechste.zins + naechste.tilg : p.rate, restHeute, getilgt: startetNoch ? 0 : d.summe - restHeute,
       zinsenBisher: bisher.reduce((s, z) => s + z.zins, 0),
       zinsenGesamt: p.zeilen.reduce((s, z) => s + z.zins, 0),
       naechste, restBindung,
       bindungEnde: start !== null && d.bindung > 0 ? start + d.bindung * 12 - 1 : null,
       ende: start !== null && fertig ? start + p.zeilen.length - 1 : null,
       laufzeit: fertig ? p.zeilen.length : null,
-      startetNoch: start !== null && start > jetzt
+      startetNoch
     };
   }
 
@@ -97,14 +106,15 @@
       zeile('Darlehenssumme', euro(d.summe, false)) +
       zeile('Restschuld heute', '<b>' + euro(a.restHeute, false) + '</b>') +
       zeile('Sollzins', pz(d.zins)) +
-      zeile(typ(d) === 'endfaellig' ? 'Tilgung' : 'Anfängliche Tilgung', typ(d) === 'endfaellig' ? 'am Ende' : (d.tilgung ? pz(d.tilgung) : (d.summe ? pz(Math.max(0, a.rate * 12 / d.summe * 100 - d.zins)) : '–'))) +
+      zeile(typ(d) === 'endfaellig' ? 'Tilgung' : 'Anfängliche Tilgung', typ(d) === 'endfaellig' ? 'am Ende' : (d.rate > 0 && d.summe ? pz(Math.max(0, a.rate * 12 / d.summe * 100 - d.zins)) : (d.tilgung ? pz(d.tilgung) : '–'))) +
       (a.naechste ? zeile('Nächste Rate', euro(a.naechste.zins) + ' Zins + ' + euro(a.naechste.tilg) + ' Tilgung', 'breit') : '') +
-      (a.bindungEnde !== null ? zeile('Zinsbindung bis', monatText(a.bindungEnde)) + zeile('Restschuld dann', euro(a.restBindung, false)) : '') +
+      (a.bindungEnde !== null ? zeile('Zinsbindung bis', monatText(a.bindungEnde)) + zeile('Restschuld dann', a.deckt && a.restBindung !== null ? euro(a.restBindung, false) : '–') : '') +
       zeile('Bisher gezahlte Zinsen', euro(a.zinsenBisher, false)) +
       zeile('Zinsen gesamt', a.laufzeit ? euro(a.zinsenGesamt, false) : '–') +
       zeile('Abbezahlt', a.ende !== null ? monatText(a.ende) + ' <span class="sub">(' + jahreText(a.laufzeit) + ')</span>' : (typ(d) === 'endfaellig' ? 'am Laufzeitende' : '–'), 'breit') +
       (d.sonder ? zeile('Sondertilgung erlaubt', pz(d.sonder) + ' pro Jahr = ' + euro(d.summe * d.sonder / 100, false)) : '') +
       '</div>';
+    if (a.startetNoch) h += '<div class="sub">Zählt erst ab ' + monatText(monatIndex(d.beginn)) + ' zur Restschuld. Hinweis: Das Darlehen, das es ablöst, wird bis zur vollständigen Rückzahlung weitergerechnet. Im Tilgungsplan der Tabelle stehen ab dann beide.</div>';
     if (d.notiz) h += '<div class="sub">' + esc(d.notiz) + '</div>';
     h += '<div class="faktionen"><button class="undo" data-bearbeiten="' + esc(d.id) + '">Bearbeiten</button>' +
       '<button class="undo" data-loeschen="' + esc(d.id) + '">Löschen</button></div></div>';
@@ -120,9 +130,9 @@
     const ims = immobilien(liste);
     const ausw = liste.map(auswertung);
     const sum = f => ims.reduce((s, i) => s + f(i), 0);
-    const fk = liste.reduce((s, d) => s + d.summe, 0), rest = ausw.reduce((s, a) => s + a.restHeute, 0), raten = ausw.reduce((s, a) => s + (a.startetNoch || !a.naechste ? 0 : a.rateAktuell), 0);
+    const fk = liste.reduce((s, d, i) => s + (ausw[i].startetNoch ? 0 : d.summe), 0), spaeter = liste.reduce((s, d, i) => s + (ausw[i].startetNoch ? d.summe : 0), 0), rest = ausw.reduce((s, a) => s + a.restHeute, 0), raten = ausw.reduce((s, a) => s + (a.startetNoch || !a.naechste ? 0 : a.rateAktuell), 0);
     let h = '<div class="kacheln">' +
-      '<div class="kachel"><div class="sub">Restschuld heute</div><div class="wert">' + euro(rest, false) + '</div><div class="sub">von ' + euro(fk, false) + ' Fremdkapital</div></div>' +
+      '<div class="kachel"><div class="sub">Restschuld heute</div><div class="wert">' + euro(rest, false) + '</div><div class="sub">von ' + euro(fk, false) + ' Fremdkapital' + (spaeter ? ', dazu ' + euro(spaeter, false) + ' später' : '') + '</div></div>' +
       '<div class="kachel"><div class="sub">Raten pro Monat</div><div class="wert">' + euro(raten) + '</div><div class="sub">' + liste.length + (liste.length === 1 ? ' Darlehen' : ' Darlehen') + '</div></div>' +
       '<div class="kachel"><div class="sub">Eigenkapital</div><div class="wert">' + euro(sum(i => i.eigenkapital), false) + '</div><div class="sub">eingesetzt</div></div>' +
       '<div class="kachel"><div class="sub">Bereits getilgt</div><div class="wert">' + euro(fk - rest, false) + '</div><div class="sub">' + (fk ? pz((fk - rest) / fk * 100) : '–') + '</div></div>' +
@@ -212,7 +222,7 @@
       const v = werte();
       if (!v.immobilie) return meldung('Bitte einen Namen für die Immobilie eintragen.', 'fehler');
       if (!(v.summe > 0)) return meldung('Bitte die Darlehenssumme eintragen.', 'fehler');
-      if (!(v.zins > 0) && !(v.rate > 0)) return meldung('Bitte den Sollzins oder die Monatsrate eintragen.', 'fehler');
+      if (!(v.zins > 0) && !(v.rate > 0) && !(v.tilgung > 0)) return meldung('Bitte den Sollzins, die Tilgung oder die Monatsrate eintragen.', 'fehler');
       if (!v.beginn) return meldung('Bitte den Monat der ersten Rate wählen.', 'fehler');
       if (typ(v) !== 'endfaellig' && !(v.tilgung > 0) && !(v.rate > 0)) return meldung('Bitte die anfängliche Tilgung oder die Monatsrate eintragen.', 'fehler');
       v.id = d.id || Date.now().toString(36);

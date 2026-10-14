@@ -17,10 +17,10 @@
     k2: 33, neuZins: 34, neuRate: 35, neuLz: 36, neuZinsen: 37,
     k3: 39, kauf: 40, grest: 41, notar: 42, makler: 43, nk: 44, gesamt: 45, ekEmpf: 46,
     k4: 48, kopf4: 49, plan: 50,
-    k5: 92, hin5: 93, nutzung: 94, wert: 95, ek: 96, kredit: 97, ekQuote: 98, sZins: 99, sTilg: 100, sLz: 101, sRate: 102,
-    zeitraum: 103, kosten: 104, wertPlus: 105, kOpt: 106, miete: 107, mietPlus: 108, alt: 109, altSteuer: 110, ausfall: 111,
-    afa: 112, steuer: 113, hilf5: 114, kopf5: 115, s5: 116,
-    eK: 157, eJahre: 158, eRest: 159, eZinsen: 160, eWert: 161, eKauf: 162, eAlt: 163, eVorteil: 164, eHinweis: 165
+    k5: 92, hin5: 93, nutzung: 94, wert: 95, wertOhne: 96, ek: 97, kredit: 98, ekQuote: 99, sZins: 100, sTilg: 101, sLz: 102, sRate: 103,
+    zeitraum: 104, kosten: 105, wertPlus: 106, kOpt: 107, miete: 108, mietPlus: 109, alt: 110, altSteuer: 111, ausfall: 112,
+    afa: 113, steuer: 114, hilf5: 115, kopf5: 116, s5: 117,
+    eK: 158, eJahre: 159, eRest: 160, eZinsen: 161, eWert: 162, eKauf: 163, eAlt: 164, eVorteil: 165, eHinweis: 166
   };
 
   // Restschuld nach k Raten fuer das Darlehen in Spalte c (k ist ein Formelausdruck)
@@ -60,17 +60,18 @@
       setz(c + Z.bank, '=IF(' + F('A') + '="","",' + F('E') + ')');
       setz(c + Z.summe, '=IF(OR(' + F('A') + '="",N(' + F('F') + ')=0),"",' + F('F') + ')', { fmt: EUR0 });
       setz(c + Z.zins, wenn(F('G')), { fmt: PZ });
-      setz(c + Z.tilg, wenn('IF(' + c + '$' + Z.typ + '="e","am Ende",IF(N(' + F('H') + ')>0,' + F('H') + ',(' + c + '$' + Z.rate + '*12/' + c + '$' + Z.summe + ')*100-' + F('G') + '))'), { fmt: PZ });
+      setz(c + Z.tilg, wenn('IF(' + c + '$' + Z.typ + '="e","am Ende",IF(AND(N(' + F('H') + ')>0,N(' + F('I') + ')=0),' + F('H') + ',(' + c + '$' + Z.rate + '*12/' + c + '$' + Z.summe + ')*100-' + F('G') + '))'), { fmt: PZ });
       setz(c + Z.rate, wenn('IF(N(' + F('I') + ')>0,' + F('I') + ',' + c + '$' + Z.summe + '*(' + F('G') + '+IF(' + c + '$' + Z.typ + '="e",0,N(' + F('H') + ')))/1200)'), { fmt: EUR });
       setz(c + Z.beginn, wenn('DATE(INT(' + c + '$' + Z.start + '/12),MOD(' + c + '$' + Z.start + ',12)+1,1)'), { fmt: MON });
       setz(c + Z.bind, wenn('IF(N(' + F('K') + ')>0,' + F('K') + ',"")'), { fmt: ZAHL });
       setz(c + Z.bindEnde, wenn('IF(N(' + F('K') + ')>0,EDATE(' + c + '$' + Z.beginn + ',' + F('K') + '*12-1),"")'), { fmt: MON });
-      setz(c + Z.restHeute, wenn(rest(c, c + '$' + Z.k)), { fmt: EUR0 });
+      setz(c + Z.restHeute, wenn('IF(' + c + '$' + Z.start + '>(YEAR(TODAY())*12+MONTH(TODAY())-1),0,' + rest(c, c + '$' + Z.k) + ')'), { fmt: EUR0 });
       setz(c + Z.restBind, wenn('IF(N(' + F('K') + ')>0,' + rest(c, 'MIN(' + c + '$' + Z.n + ',' + F('K') + '*12)') + ',"")'), { fmt: EUR0 });
-      setz(c + Z.ende, wenn('EDATE(' + c + '$' + Z.beginn + ',' + c + '$' + Z.n + '-1)'), { fmt: MON });
-      setz(c + Z.laufzeit, wenn(c + '$' + Z.n + '/12'), { fmt: JAHR1 });
-      setz(c + Z.zinsenGes, wenn('IF(' + c + '$' + Z.typ + '="t",' + c + '$' + Z.r + '*(' + c + '$' + Z.n + '*' + c + '$' + Z.summe + '-' + c + '$' + Z.t + '*' + c + '$' + Z.n + '*(' + c + '$' + Z.n + '-1)/2),' +
-        'IF(' + c + '$' + Z.typ + '="e",' + c + '$' + Z.summe + '*' + c + '$' + Z.r + '*' + c + '$' + Z.n + ',' + c + '$' + Z.rate + '*' + c + '$' + Z.n + '-' + c + '$' + Z.ueber + '-' + c + '$' + Z.summe + '))'), { fmt: EUR0 });
+      const offen = 'AND(' + c + '$' + Z.typ + '="e",N(' + F('K') + ')=0)';  // endfaellig ohne Zinsbindung: Ende unbekannt
+      setz(c + Z.ende, wenn('IF(' + offen + ',"",EDATE(' + c + '$' + Z.beginn + ',' + c + '$' + Z.n + '-1))'), { fmt: MON });
+      setz(c + Z.laufzeit, wenn('IF(' + offen + ',"",' + c + '$' + Z.n + '/12)'), { fmt: JAHR1 });
+      setz(c + Z.zinsenGes, wenn('IF(' + offen + ',"",IF(' + c + '$' + Z.typ + '="t",' + c + '$' + Z.r + '*(' + c + '$' + Z.n + '*' + c + '$' + Z.summe + '-' + c + '$' + Z.t + '*' + c + '$' + Z.n + '*(' + c + '$' + Z.n + '-1)/2),' +
+        'IF(' + c + '$' + Z.typ + '="e",' + c + '$' + Z.summe + '*' + c + '$' + Z.r + '*' + c + '$' + Z.n + ',' + c + '$' + Z.rate + '*' + c + '$' + Z.n + '-' + c + '$' + Z.ueber + '-' + c + '$' + Z.summe + ')))'), { fmt: EUR0 });
       setz(c + Z.sonder, wenn('IF(N(' + F('L') + ')>0,' + c + '$' + Z.summe + '*' + F('L') + '/100,"")'), { fmt: EUR0 });
 
       // Hilfswerte
@@ -78,7 +79,7 @@
       setz(c + Z.start, wenn('IF(ISNUMBER(' + F('J') + '),YEAR(' + F('J') + ')*12+MONTH(' + F('J') + ')-1,VALUE(LEFT(' + F('J') + ',4))*12+VALUE(MID(' + F('J') + ',6,2))-1)'), { fmt: ZAHL });
       setz(c + Z.r, wenn(F('G') + '/1200'), { fmt: '0.000000' });
       setz(c + Z.t, wenn('IF(N(' + F('H') + ')>0,' + c + '$' + Z.summe + '*' + F('H') + '/1200,MAX(0,' + c + '$' + Z.rate + '-' + c + '$' + Z.summe + '*' + c + '$' + Z.r + '))'), { fmt: EUR });
-      setz(c + Z.n, wenn('IF(' + c + '$' + Z.typ + '="e",IF(N(' + F('K') + ')>0,' + F('K') + '*12,360),IF(' + c + '$' + Z.typ + '="t",ROUNDUP(ROUND(' + c + '$' + Z.summe + '/' + c + '$' + Z.t + ',6),0),' +
+      setz(c + Z.n, wenn('IF(' + c + '$' + Z.typ + '="e",IF(N(' + F('K') + ')>0,' + F('K') + '*12,1200),IF(' + c + '$' + Z.typ + '="t",ROUNDUP(ROUND(' + c + '$' + Z.summe + '/' + c + '$' + Z.t + ',6),0),' +
         'IF(' + c + '$' + Z.r + '=0,ROUNDUP(ROUND(' + c + '$' + Z.summe + '/' + c + '$' + Z.rate + ',6),0),IF(' + c + '$' + Z.rate + '<=' + c + '$' + Z.summe + '*' + c + '$' + Z.r + ',"",ROUNDUP(ROUND(NPER(' + c + '$' + Z.r + ',-' + c + '$' + Z.rate + ',' + c + '$' + Z.summe + '),6),0)))))'), { fmt: ZAHL });
       setz(c + Z.k, wenn('MAX(0,MIN(' + c + '$' + Z.n + ',YEAR(TODAY())*12+MONTH(TODAY())-1-' + c + '$' + Z.start + '))'), { fmt: ZAHL });
       setz(c + Z.ueber, wenn('IF(' + c + '$' + Z.typ + '="a",' + c + '$' + Z.rate + '-' + rest(c, c + '$' + Z.n + '-1') + '*(1+' + c + '$' + Z.r + '),0)'), { fmt: EUR });
@@ -154,6 +155,7 @@
     const aus = (r, t, f, fmt, hinweis) => { setz('A' + r, t); setz('B' + r, f, { fmt: fmt, fett: true }); if (hinweis) setz('C' + r, hinweis, { grau: true }); };
     ein(Z.nutzung, 'Nutzung', 'Eigennutzung', null, 'Eigennutzung oder Vermietung', { liste: ['Eigennutzung', 'Vermietung'] });
     ein(Z.wert, 'Immobilienwert (Kaufpreis inkl. Nebenkosten)', '=N(' + D + '!B2)', EUR0, 'Vorgabe aus deinen Krediten, frei änderbar');
+    ein(Z.wertOhne, 'Kaufpreis ohne Nebenkosten', '=IF(N($D$' + Z.kauf + ')>0,$D$' + Z.kauf + ',ROUND(' + B(Z.wert) + '*100/110,-2))', EUR0, 'Basis für den Wert der Immobilie (Nebenkosten steigern den Wert nicht). Vorgabe: Teil 3, sonst Wert minus ca. 10 %');
     ein(Z.ek, 'Eigenkapital', '=N(' + D + '!C2)', EUR0);
     ein(Z.kredit, 'Kreditsumme', '=MAX(0,' + B(Z.wert) + '-' + B(Z.ek) + ')', EUR0, 'Vorgabe: Immobilienwert minus Eigenkapital');
     aus(Z.ekQuote, 'Eigenkapitalanteil', '=IFERROR(' + B(Z.ek) + '/' + B(Z.wert) + '*100,"")', PZ);
@@ -162,7 +164,7 @@
     ein(Z.sLz, 'Oder: Kreditlaufzeit in Jahren', '', ZAHL, 'z. B. 10 oder 30; wenn ausgefüllt, wird die Tilgung so gewählt, dass der Kredit dann abbezahlt ist');
     aus(Z.sRate, 'Monatsrate', '=IFERROR(IF(N(' + B(Z.sLz) + ')>0,-PMT(' + B(Z.sZins) + '/1200,' + B(Z.sLz) + '*12,' + B(Z.kredit) + '),' + B(Z.kredit) + '*(' + B(Z.sZins) + '+' + B(Z.sTilg) + ')/1200),0)', EUR);
     ein(Z.zeitraum, 'Betrachtungszeitraum in Jahren', '=IF(N(' + B(Z.sLz) + ')>0,MIN(40,' + B(Z.sLz) + '),IFERROR(MIN(40,ROUNDUP($D$' + Z.hilf5 + '/12,0)),30))', ZAHL, 'Vorgabe: bis der Kredit abbezahlt ist (höchstens 40)');
-    ein(Z.kosten, 'Instandhaltung und Eigentümerkosten pro Jahr', '=ROUND(' + B(Z.wert) + '/100,-2)', EUR0, 'Faustregel: ca. 1 % des Werts als Rücklage');
+    ein(Z.kosten, 'Instandhaltung und Eigentümerkosten pro Jahr', '=ROUND(' + B(Z.wertOhne) + '/100,-2)', EUR0, 'Faustregel: ca. 1 % des Kaufpreises als Rücklage, steigt jährlich wie die Mietsteigerung');
     ein(Z.wertPlus, 'Wertsteigerung der Immobilie pro Jahr', 1.5, PZ);
     setz('A' + Z.kOpt, 'Optional: Vergleich mit Mieten oder Vermietung', { fett: true, kopf: true });
     ein(Z.miete, 'Miete pro Monat (kalt)', '', EUR0, 'Eigennutzung: Miete, die du sonst zahlen würdest (für den Vergleich). Vermietung: Mieteinnahme.');
@@ -170,7 +172,7 @@
     ein(Z.alt, 'Zins einer alternativen Geldanlage', 4, PZ);
     ein(Z.altSteuer, 'Steuer auf Kapitalerträge', 25, PZ, 'Abgeltungsteuer, vereinfacht');
     ein(Z.ausfall, 'Nur Vermietung: Mietausfallwagnis', 2, PZ);
-    ein(Z.afa, 'Nur Vermietung: Abschreibung (AfA) pro Jahr', '=' + B(Z.wert) + '*80/100*2/100', EUR0, 'Faustregel: 2 % vom Gebäudeanteil (80 %)');
+    ein(Z.afa, 'Nur Vermietung: Abschreibung (AfA) pro Jahr', '=' + B(Z.wert) + '*80/100*2/100', EUR0, 'Faustregel: 2 % vom Gebäudeanteil (80 %); Neubau ab 2023: 3 %, Baujahr vor 1925: 2,5 %');
     ein(Z.steuer, 'Nur Vermietung: persönlicher Steuersatz', 30, PZ);
 
     // Hilfswerte (ausgeblendete Zeile): Monatszins, Rate, Anzahl Raten, letzte Rate kleiner um, Vermietung ja/nein, Anlagezins netto
@@ -194,11 +196,11 @@
       setz('B' + r, w('IFERROR((' + ke + '-' + ks + ')*' + H.R + '-IF(AND(' + ke + '=' + H.n + ',' + ke + '>' + ks + '),' + H.ue + ',0)-(' + restS(ks) + '-' + restS(ke) + '),0)'), { fmt: EUR0 });
       setz('C' + r, w('IFERROR(' + restS(ks) + '-' + restS(ke) + ',0)'), { fmt: EUR0 });
       setz('D' + r, w('IFERROR(' + restS(ke) + ',0)'), { fmt: EUR0 });
-      setz('E' + r, w(B(Z.kosten)), { fmt: EUR0 });
+      setz('E' + r, w(B(Z.kosten) + '*((100+' + B(Z.mietPlus) + ')/100)^(' + A + '-1)'), { fmt: EUR0 });
       setz('F' + r, w('N(' + B(Z.miete) + ')*12*((100+' + B(Z.mietPlus) + ')/100)^(' + A + '-1)*IF(' + H.verm + '=1,(100-' + B(Z.ausfall) + ')/100,1)'), { fmt: EUR0 });
       setz('G' + r, w('IF(' + H.verm + '=1,(F' + r + '-E' + r + '-B' + r + '-' + B(Z.afa) + ')*' + B(Z.steuer) + '/100,0)'), { fmt: EUR0 });
       setz('H' + r, w('B' + r + '+C' + r + '+E' + r + '+G' + r), { fmt: EUR0, fett: true });
-      setz('I' + r, w(B(Z.wert) + '*((100+' + B(Z.wertPlus) + ')/100)^' + A), { fmt: EUR0 });
+      setz('I' + r, w(B(Z.wertOhne) + '*((100+' + B(Z.wertPlus) + ')/100)^' + A), { fmt: EUR0 });
       const vorK = j ? 'N(K' + (r - 1) + ')' : '0', vorL = j ? 'L' + (r - 1) : B(Z.ek);
       setz('K' + r, w('IF(' + H.verm + '=1,' + vorK + '*(1+' + H.ra + ')+F' + r + '-H' + r + ',"")'), { fmt: EUR0 });
       setz('J' + r, w('I' + r + '-D' + r + '+N(K' + r + ')'), { fmt: EUR0, fett: true });
