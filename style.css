@@ -125,3 +125,7 @@ li.wartend.problem .sub { color:var(--err); }
 .zweispaltig { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 10px; }
 .zweispaltig label { margin-top:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .darlehen .warnung { color:var(--err); }
+.zweispaltig > div { min-width:0; }
+.zweispaltig input { min-width:0; max-width:100%; }
+input[type="month"] { -webkit-appearance:none; appearance:none; min-height:48px; text-align:left; }
+input[type="month"]::-webkit-date-and-time-value { text-align:left; }
