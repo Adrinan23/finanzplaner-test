@@ -114,3 +114,14 @@ li.wartend .posten::after { content:' · wartet'; color:var(--muted); font-size:
 li.wartend .betrag { opacity:.6; }
 li.wartend.problem .posten::after { content:' · Problem'; color:var(--err); }
 li.wartend.problem .sub { color:var(--err); }
+/* ---------- Finanzierung ---------- */
+.darlehen { border-top:1px solid var(--line); padding-top:12px; margin-top:12px; }
+.fraster { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; margin:10px 0 6px; font-size:14px; }
+.fzeile { display:flex; flex-direction:column; }
+.fzeile.breit { grid-column:1 / -1; }
+.faktionen { display:flex; gap:8px; margin-top:8px; }
+.aufteilung { display:flex; height:12px; border-radius:6px; overflow:hidden; margin:6px 0 4px; }
+.aufteilung .balken { height:12px; margin:0; border-radius:0; }
+.zweispaltig { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 10px; }
+.zweispaltig label { margin-top:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.darlehen .warnung { color:var(--err); }

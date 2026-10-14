@@ -497,9 +497,41 @@
     return ergebnis;
   }
 
+  // ---------- Finanzierung (Immobilienkredite) ----------
+  // Eigenes Blatt "Finanzierung": eine Zeile pro Darlehen. Wird beim Anlegen eines neuen Jahres mitkopiert.
+  const FIN_BLATT = 'Finanzierung';
+  const FIN_KOPF = ['Immobilie', 'Kaufpreis inkl. Nebenkosten', 'Eigenkapital', 'Kreditart', 'Bank', 'Darlehenssumme',
+    'Sollzins % p.a.', 'Anfängliche Tilgung % p.a.', 'Monatsrate', 'Beginn (JJJJ-MM)', 'Zinsbindung (Jahre)', 'Sondertilgung % p.a.', 'Notiz', 'ID'];
+  const FIN_FELDER = ['immobilie', 'kaufpreis', 'eigenkapital', 'art', 'bank', 'summe', 'zins', 'tilgung', 'rate', 'beginn', 'bindung', 'sonder', 'notiz', 'id'];
+
+  async function finanzierungLaden(id) {
+    const info = await blaetter(id);
+    if (!info.blaetter.find(b => b.title === FIN_BLATT)) return [];
+    const [z] = await werteHolen(id, [q(FIN_BLATT) + '!A2:N200'], 'UNFORMATTED_VALUE');
+    return z.filter(r => r && r[0]).map(r => {
+      const d = {};
+      FIN_FELDER.forEach((f, i) => { d[f] = r[i] === undefined ? '' : r[i]; });
+      ['kaufpreis', 'eigenkapital', 'summe', 'zins', 'tilgung', 'rate', 'bindung', 'sonder'].forEach(f => { d[f] = Number(String(d[f]).replace(',', '.')) || 0; });
+      d.beginn = String(d.beginn); d.id = String(d.id || Math.random().toString(36).slice(2, 9));
+      return d;
+    });
+  }
+
+  async function finanzierungSpeichern(id, liste) {
+    const info = await blaetter(id);
+    if (!info.blaetter.find(b => b.title === FIN_BLATT)) {
+      await batch(id, [{ addSheet: { properties: { title: FIN_BLATT, gridProperties: { frozenRowCount: 1 } } } }]);
+    }
+    await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(FIN_BLATT) + '!A2:N200') + ':clear', { method: 'POST', body: {} });
+    const zeilen = [FIN_KOPF].concat(liste.map(d => FIN_FELDER.map(f => d[f] === undefined ? '' : d[f])));
+    await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(FIN_BLATT) + '!A1:N' + zeilen.length) + '?valueInputOption=RAW', {
+      method: 'PUT', body: { values: zeilen }
+    });
+  }
+
   window.Google = {
     TEST, anmelden, abmelden, tokenAusAdresse, token, restMinuten, nutzer, NichtAngemeldet,
     meineDateien, kandidaten, verbinden, ersterFinanzplaner, jahrAnlegen,
-    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele
+    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern
   };
 })();

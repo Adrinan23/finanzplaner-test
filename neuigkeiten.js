@@ -2,6 +2,13 @@
 // Neue Eintraege oben anfuegen. Gibt es nichts Neues, erscheint keine Meldung.
 window.NEUIGKEITEN = [
   {
+    id: '2026-10-14c',
+    punkte: [
+      'Neuer Bereich „Kredite“ unten in der Leiste: Trage deine Immobilienfinanzierung mit Eigenkapital und Darlehen ein.',
+      'Die App berechnet Monatsrate, Restschuld, Zins- und Tilgungsanteil, Zinsbindungsende und wann der Kredit abbezahlt ist.'
+    ]
+  },
+  {
     id: '2026-10-14b',
     punkte: [
       'Offline eintragen: Ohne Internet werden neue Einträge auf dem Handy gespeichert und automatisch eingetragen, sobald du wieder online bist.',

@@ -14,7 +14,7 @@
   function meldung(text, klasse, ziel) { const m = $(ziel || 'meldung'); m.textContent = text || ''; m.className = 'meldung ' + (klasse || ''); }
   function zeige(bereiche) {
     ['anmeldung', 'einrichten', 'formular', 'verlauf', 'fuss'].forEach(id => { $(id).hidden = bereiche.indexOf(id) < 0; });
-    if (bereiche.indexOf('formular') < 0) { $('hinweisVorlage').hidden = true; $('uebersicht').hidden = true; }
+    if (bereiche.indexOf('formular') < 0) { $('hinweisVorlage').hidden = true; $('uebersicht').hidden = true; $('finanzierung').hidden = true; }
     const app = bereiche.indexOf('formular') >= 0;
     $('leiste').hidden = !app; $('jahr').hidden = !app;
     document.body.classList.toggle('mit-leiste', app);
@@ -172,13 +172,14 @@
   }
 
   function setzeModus(m) {
-    const gibt = x => x === 'uebersicht' || daten.bereiche.some(b => art(b) === x);
-    modus = (MODI[m] || m === 'uebersicht') && gibt(m) ? m : 'variabel';
+    const gibt = x => x === 'uebersicht' || x === 'finanzierung' || daten.bereiche.some(b => art(b) === x);
+    modus = (MODI[m] || m === 'uebersicht' || m === 'finanzierung') && gibt(m) ? m : 'variabel';
     merke('modus', modus);
     tabs.forEach(t => { t.classList.toggle('aktiv', t.dataset.modus === modus); t.hidden = !gibt(t.dataset.modus); });
-    const dash = modus === 'uebersicht';
-    $('formular').hidden = dash; $('verlauf').hidden = dash; $('uebersicht').hidden = !dash;
+    const dash = modus === 'uebersicht', fin = modus === 'finanzierung';
+    $('formular').hidden = dash || fin; $('verlauf').hidden = dash || fin; $('uebersicht').hidden = !dash; $('finanzierung').hidden = !fin;
     if (dash) { $('titel').textContent = 'Übersicht'; zeigeDashboard(); return; }
+    if (fin) { $('titel').textContent = 'Finanzierung'; window.Finanzierung.zeige($('finanzierung'), dateien[jahr].id); return; }
     $('titel').textContent = MODI[modus].titel;
     $('speichern').textContent = MODI[modus].knopf;
     meldung('');
