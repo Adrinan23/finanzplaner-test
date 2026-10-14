@@ -137,7 +137,9 @@
         (i.kaufpreis ? '<div class="sub">Kaufpreis inkl. Nebenkosten: ' + euro(i.kaufpreis, false) + (Math.abs(i.kaufpreis - i.eigenkapital - fkI) > 1 ? ' · Differenz zu EK + Darlehen: ' + euro(i.kaufpreis - i.eigenkapital - fkI, false) : '') + '</div>' : '') +
         i.darlehen.map(darlehenHtml).join('') + '</div>';
     });
-    h += '<button class="haupt" id="finNeu">Weiteres Darlehen eintragen</button>';
+    if (liste.length > 6) h += '<div class="sub">Im Arbeitsblatt „Immobilienfinanzierung“ der Tabelle werden die ersten 6 Darlehen berechnet.</div>';
+    h += '<button class="haupt" id="finNeu">Weiteres Darlehen eintragen</button>' +
+      '<button class="zweit" id="finBlatt">Arbeitsblatt in der Tabelle neu aufbauen</button>';
     return h;
   }
 
@@ -170,6 +172,14 @@
   function zeichne() {
     ziel.innerHTML = ansicht(liste) + '<div class="meldung" id="finMeldung"></div>';
     const neu = $('finNeu'); if (neu) neu.onclick = () => bearbeite({});
+    const bl = $('finBlatt');
+    if (bl) bl.onclick = async () => {
+      if (!confirm('Arbeitsblatt „Immobilienfinanzierung“ in deiner Tabelle neu aufbauen?\n\nDeine Darlehen bleiben erhalten. Nur was du im Arbeitsblatt selbst in gelbe Felder eingetragen hast, wird zurückgesetzt.')) return;
+      bl.disabled = true; meldung('Baue das Arbeitsblatt auf …');
+      try { await window.Google.finanzierungsBlatt(dateiId, true); meldung('Das Arbeitsblatt „Immobilienfinanzierung“ ist neu aufgebaut.', 'ok'); }
+      catch (err) { meldung(err.message || String(err), 'fehler'); if (err instanceof window.Google.NichtAngemeldet) window.Google.anmelden(true); }
+      bl.disabled = false;
+    };
     ziel.querySelectorAll('[data-bearbeiten]').forEach(b => { b.onclick = () => bearbeite(Object.assign({}, liste.find(d => d.id === b.dataset.bearbeiten))); });
     ziel.querySelectorAll('[data-loeschen]').forEach(b => {
       b.onclick = async () => {
@@ -228,6 +238,9 @@
     try {
       await window.Google.finanzierungSpeichern(dateiId, neu);
       liste = neu;
+      // Arbeitsblatt "Immobilienfinanzierung" beim ersten Speichern anlegen (rechnet danach selbst mit)
+      try { if (await window.Google.finanzierungsBlatt(dateiId, false)) text += ' Das Arbeitsblatt „Immobilienfinanzierung“ wurde in deiner Tabelle angelegt.'; }
+      catch (err) { console.warn('Arbeitsblatt nicht angelegt', err); }
       zeichne();
       meldung(text, 'ok');
     } catch (err) {
