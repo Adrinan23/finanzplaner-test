@@ -16,7 +16,13 @@
     kHilf: 23, typ: 24, start: 25, r: 26, t: 27, n: 28, k: 29, ueber: 30, startJahr: 31,
     k2: 33, neuZins: 34, neuRate: 35, neuLz: 36, neuZinsen: 37,
     k3: 39, kauf: 40, grest: 41, notar: 42, makler: 43, nk: 44, gesamt: 45, ekEmpf: 46,
-    k4: 48, kopf4: 49, plan: 50
+    k4: 48, kopf4: 49, plan: 50,
+    k5: 92, hin5: 93, eKauf: 94, eEk: 95, eMiete: 96, eMietPlus: 97, eKosten: 98, eAusfall: 99, eAfa: 100, eSteuer: 101,
+    eWert: 102, eGuthaben: 103, eAlt: 104, eAltSteuer: 105, eDispo: 106,
+    vT: 107, vJahr: 108, vKauf: 109, vMiete: 110, vKosten: 111, vAusfall: 112, vObjekt: 113, vEk: 114, vDarl: 115, vZins: 116,
+    vTilg: 117, vSteuer: 118, vZinsFA: 119, vSaldo: 120, vFA: 121, vRest: 122, vWert: 123, vVerm: 124,
+    vStKopf: 126, vEink: 127, vSt: 128, vAlt: 130,
+    sK: 132, sImmo: 133, sAlt: 134, sVorteil: 135, sRendite: 136
   };
 
   // Restschuld nach k Raten fuer das Darlehen in Spalte c (k ist ein Formelausdruck)
@@ -140,6 +146,67 @@
       setz('O' + r, '=IF(' + Y + '="","",SUMIF($B$' + Z.startJahr + ':$G$' + Z.startJahr + ',' + Y + ',$B$' + Z.summe + ':$G$' + Z.summe + ')' + (j ? '+N(P' + (r - 1) + ')' : '') + '-P' + r + ')', { fmt: EUR0, fett: true });
       setz('Q' + r, '=IF(' + Y + '="","",N' + r + '+O' + r + ')', { fmt: EUR0, fett: true });
     }
+
+    // ---- 5. Vermietung: Vollstaendiger Finanzplan (VoFi) ----
+    // t = 0..10 in den Spalten C..M; Zinsen, Tilgung und Restschuld kommen aus dem Tilgungsplan (Teil 4, Jahr 1 = erste Zeile).
+    const T = ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
+    const B = r => '$B$' + r;
+    setz('A' + Z.k5, '5. Vermietung: Vollständiger Finanzplan (VoFi) über 10 Jahre', { fett: true, kapitel: true });
+    setz('A' + Z.hin5, 'Wie in deiner Uni-Datei: Lohnt sich die vermietete Immobilie gegenüber einer Geldanlage des Eigenkapitals? Zinsen und Tilgung kommen aus dem Tilgungsplan (Teil 4).', { grau: true });
+    const ein = (r, t, wert, fmt, hinweis) => { setz('A' + r, t); setz('B' + r, wert, { fmt: fmt, eingabe: true }); if (hinweis) setz('C' + r, hinweis, { grau: true }); };
+    ein(Z.eKauf, 'Kaufpreis inkl. Nebenkosten', '=N(' + D + '!B2)', EUR0, 'aus „Finanzierung“, kann überschrieben werden');
+    ein(Z.eEk, 'Eigenkapital', '=N(' + D + '!C2)', EUR0);
+    ein(Z.eMiete, 'Nettokaltmiete pro Jahr (Jahr 1)', 0, EUR0);
+    ein(Z.eMietPlus, 'Mietsteigerung pro Jahr', 2, PZ);
+    ein(Z.eKosten, 'Verwaltung, Instandhaltung, nicht umlagefähige Kosten pro Jahr', 0, EUR0);
+    ein(Z.eAusfall, 'Mietausfallwagnis', 2, PZ, 'Anteil der Miete');
+    ein(Z.eAfa, 'Abschreibung (AfA) pro Jahr', '=' + B(Z.eKauf) + '*80/100*2/100', EUR0, 'Faustregel: 2 % vom Gebäudeanteil (hier 80 % des Kaufpreises)');
+    ein(Z.eSteuer, 'Persönlicher Steuersatz', 30, PZ);
+    ein(Z.eWert, 'Wertsteigerung der Immobilie pro Jahr', 1.5, PZ);
+    ein(Z.eGuthaben, 'Zins auf Überschüsse (Finanzanlage)', 2, PZ);
+    ein(Z.eAlt, 'Zins der alternativen Geldanlage', 4, PZ);
+    ein(Z.eAltSteuer, 'Steuer auf Kapitalerträge', 25, PZ, 'Abgeltungsteuer, vereinfacht');
+    ein(Z.eDispo, 'Zins auf Unterdeckung', 8, PZ, 'wenn Miete die Raten nicht deckt (z. B. Dispo oder Zusatzdarlehen)');
+
+    const zeilen5 = [[Z.vT, 'Zeitpunkt t'], [Z.vJahr, 'Jahr'], [Z.vKauf, 'Immobilienkauf'], [Z.vMiete, '+ Nettokaltmiete'], [Z.vKosten, '− Verwaltung, Instandhaltung'],
+      [Z.vAusfall, '− Mietausfall'], [Z.vObjekt, 'Zahlungsreihe der Immobilie'], [Z.vEk, '+ Eigenkapital'], [Z.vDarl, '+ Aufnahme Darlehen'],
+      [Z.vZins, '− Sollzinsen'], [Z.vTilg, '− Tilgung'], [Z.vSteuer, '− Steuern (negativ = Erstattung)'], [Z.vZinsFA, '± Zinsen Finanzanlage / Unterdeckung'],
+      [Z.vSaldo, 'Überschuss im Jahr (negativ = Zuschuss nötig)'], [Z.vFA, 'Bestand Finanzanlage (negativ = Unterdeckung)'], [Z.vRest, 'Restschuld Darlehen'], [Z.vWert, 'Wert der Immobilie'],
+      [Z.vVerm, 'Vermögen (Wert − Restschuld + Finanzanlage)'], [Z.vStKopf, 'Steuerberechnung'], [Z.vEink, 'Einkünfte aus Vermietung und Zinsen'], [Z.vSt, 'Steuern'],
+      [Z.vAlt, 'Alternative: Eigenkapital als Geldanlage']];
+    zeilen5.forEach(([r, t]) => setz('A' + r, t, { fett: [Z.vT, Z.vObjekt, Z.vSaldo, Z.vVerm, Z.vStKopf, Z.vAlt].indexOf(r) >= 0, kopf: r === Z.vT || r === Z.vStKopf }));
+    T.forEach((c, t) => {
+      const p = (spalte) => 'N(INDEX($' + spalte + '$' + Z.plan + ':$' + spalte + '$' + (Z.plan + JAHRE - 1) + ',' + t + '))';
+      const vor = T[t - 1];
+      setz(c + Z.vT, t, { fmt: '"t="0', fett: true, kopf: true });
+      setz(c + Z.vJahr, t === 0 ? 'Kauf' : '=IF($A$' + Z.plan + '="","",$A$' + Z.plan + '+' + (t - 1) + ')', { fmt: ZAHL });
+      setz(c + Z.vKauf, t === 0 ? '=-' + B(Z.eKauf) : 0, { fmt: EUR0 });
+      setz(c + Z.vMiete, t === 0 ? 0 : (t === 1 ? '=' + B(Z.eMiete) : '=' + vor + Z.vMiete + '*(100+' + B(Z.eMietPlus) + ')/100'), { fmt: EUR0 });
+      setz(c + Z.vKosten, t === 0 ? 0 : '=' + B(Z.eKosten), { fmt: EUR0 });
+      setz(c + Z.vAusfall, t === 0 ? 0 : '=' + c + Z.vMiete + '*' + B(Z.eAusfall) + '/100', { fmt: EUR0 });
+      setz(c + Z.vObjekt, '=' + c + Z.vKauf + '+' + c + Z.vMiete + '-' + c + Z.vKosten + '-' + c + Z.vAusfall, { fmt: EUR0, fett: true });
+      setz(c + Z.vEk, t === 0 ? '=' + B(Z.eEk) : 0, { fmt: EUR0 });
+      setz(c + Z.vDarl, t === 0 ? '=N($H$' + Z.summe + ')' : 0, { fmt: EUR0 });
+      setz(c + Z.vZins, t === 0 ? 0 : '=' + p('N'), { fmt: EUR0 });
+      setz(c + Z.vTilg, t === 0 ? 0 : '=' + p('O'), { fmt: EUR0 });
+      setz(c + Z.vSteuer, t === 0 ? 0 : '=' + c + Z.vSt, { fmt: EUR0 });
+      setz(c + Z.vZinsFA, t === 0 ? 0 : '=IF(' + vor + Z.vFA + '>=0,' + vor + Z.vFA + '*' + B(Z.eGuthaben) + ',' + vor + Z.vFA + '*' + B(Z.eDispo) + ')/100', { fmt: EUR0 });
+      setz(c + Z.vSaldo, '=' + c + Z.vObjekt + '+' + c + Z.vEk + '+' + c + Z.vDarl + '-' + c + Z.vZins + '-' + c + Z.vTilg + '-' + c + Z.vSteuer + '+' + c + Z.vZinsFA, { fmt: EUR0, fett: true });
+      setz(c + Z.vFA, t === 0 ? '=' + c + Z.vSaldo : '=' + vor + Z.vFA + '+' + c + Z.vSaldo, { fmt: EUR0 });
+      setz(c + Z.vRest, t === 0 ? '=N($H$' + Z.summe + ')' : '=' + p('P'), { fmt: EUR0 });
+      setz(c + Z.vWert, '=' + B(Z.eKauf) + '*((100+' + B(Z.eWert) + ')/100)^' + t, { fmt: EUR0 });
+      setz(c + Z.vVerm, '=' + c + Z.vWert + '-' + c + Z.vRest + '+' + c + Z.vFA, { fmt: EUR0, fett: true });
+      setz(c + Z.vStKopf, '', { kopf: true });
+      setz(c + Z.vEink, t === 0 ? 0 : '=' + c + Z.vMiete + '-' + c + Z.vKosten + '-' + c + Z.vAusfall + '-' + B(Z.eAfa) + '-' + c + Z.vZins + '+' + c + Z.vZinsFA, { fmt: EUR0 });
+      setz(c + Z.vSt, t === 0 ? 0 : '=' + c + Z.vEink + '*' + B(Z.eSteuer) + '/100', { fmt: EUR0 });
+      setz(c + Z.vAlt, t === 0 ? '=' + B(Z.eEk) : '=' + vor + Z.vAlt + '*(1+' + B(Z.eAlt) + '/100*(100-' + B(Z.eAltSteuer) + ')/100)', { fmt: EUR0, fett: true });
+    });
+    setz('A' + Z.sK, 'Ergebnis nach 10 Jahren', { fett: true, kapitel: true });
+    setz('A' + Z.sImmo, 'Vermögen mit Immobilie'); setz('B' + Z.sImmo, '=M' + Z.vVerm, { fmt: EUR0, fett: true });
+    setz('C' + Z.sImmo, 'Verkauf nach 10 Jahren ist privat steuerfrei; Verkaufskosten sind nicht berücksichtigt.', { grau: true });
+    setz('A' + Z.sAlt, 'Vermögen mit Geldanlage'); setz('B' + Z.sAlt, '=M' + Z.vAlt, { fmt: EUR0, fett: true });
+    setz('A' + Z.sVorteil, 'Vorteil der Immobilie'); setz('B' + Z.sVorteil, '=B' + Z.sImmo + '-B' + Z.sAlt, { fmt: EUR0, fett: true });
+    setz('A' + Z.sRendite, 'Rendite auf das Eigenkapital pro Jahr'); setz('B' + Z.sRendite, '=IFERROR(((B' + Z.sImmo + '/' + B(Z.eEk) + ')^(1/10)-1)*100,"")', { fmt: PZ, fett: true });
     return z;
   }
 

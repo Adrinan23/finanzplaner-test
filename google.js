@@ -537,7 +537,7 @@
     let blatt = info.blaetter.find(b => b.title === FB.NAME);
     if (blatt && !neu) return false;
     if (blatt) await batch(id, [{ deleteSheet: { sheetId: blatt.sheetId } }]);
-    const r = await batch(id, [{ addSheet: { properties: { title: FB.NAME, gridProperties: { rowCount: 100, columnCount: 17 } } } }]);
+    const r = await batch(id, [{ addSheet: { properties: { title: FB.NAME, gridProperties: { rowCount: 140, columnCount: 17 } } } }]);
     const sid = r.replies[0].addSheet.properties.sheetId;
     const farbe = h => ({ red: parseInt(h.slice(0, 2), 16) / 255, green: parseInt(h.slice(2, 4), 16) / 255, blue: parseInt(h.slice(4, 6), 16) / 255 });
     const anfragen = FB.zellen().map(c => {
