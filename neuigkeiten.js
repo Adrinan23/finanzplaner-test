@@ -9,7 +9,7 @@ window.NEUIGKEITEN = [
       'Beim endfälligen Darlehen trägst du dein Tilgungskonto mit Guthaben und Sparrate ein. Die App zeigt, ob es am Ende für die Rückzahlung reicht.',
       'Oben siehst du deine Ersparnis, deine gedachte Ersparnis, die Zinsen pro Monat und wie viel dir an der Immobilie schon gehört.',
       'In deiner Tabelle steht im Blatt „Ersparnisse - Rücklagen“ unter den Sparzielen ein neuer Block „Immobilien“ mit echter und gedachter Ersparnis.',
-      'Ganz unten in der Monatsübersicht siehst du jeden Monat, wie viel du über deine Immobilie gespart hast (Tilgung bzw. Sparrate), fortlaufend seit Januar und zusammen mit deinen anderen Sparbeiträgen.'
+      'In der Monatsübersicht gibt es bei den Sparbeiträgen die Zeile „Tilgung Immobilie (automatisch)“: Sie zeigt jeden Monat deine Tilgung bzw. Sparrate und rechnet sich von selbst.'
     ]
   },
   {

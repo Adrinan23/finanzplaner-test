@@ -56,55 +56,23 @@
     return z;
   }
 
-  // Block in der Monatsübersicht (unter "MONATLICHE GESAMT-KONSOLIDIERUNG"): je Monat die Ersparnis aus den Krediten
-  // (Tilgung bzw. Sparrate aufs Tilgungskonto), fortlaufend im Jahr, und die Zinsen. Zählt nicht in den Saldo.
-  // z0: erste Zeile, jan: Spalte Januar (1 = A), datum: Zeile mit den Monatsdaten, spar: Zwischensumme Sparbeiträge (oder 0)
-  const MARKE_MONAT = 'IMMOBILIEN: ERSPARNIS UND GEDACHTE ERSPARNIS';
-  const sp = n => String.fromCharCode(64 + n);
-  function monatsZellen(z0, jan, datum, spar) {
-    const z = [];
-    const setz = (a1, inhalt, extra) => z.push(Object.assign(typeof inhalt === 'string' && inhalt.charAt(0) === '=' ? { a1, f: inhalt } : { a1, v: inhalt }, extra || {}));
+  // Zeile im Sparbereich der Monatsübersicht: Ersparnis aller Kredite im Monat der Spalte X
+  // (Tilgung beim Annuitätendarlehen, Sparrate aufs Tilgungskonto beim endfälligen Darlehen).
+  const ZEILE_MONAT = 'Tilgung Immobilie (automatisch)';
+  const MARKE_MONAT_ALT = 'IMMOBILIEN: ERSPARNIS UND GEDACHTE ERSPARNIS';
+  function monatsFormel(X, datum) {
     const idx = c => 'IF(ISNUMBER(' + c + '),YEAR(' + c + ')*12+MONTH(' + c + ')-1,VALUE(LEFT(' + c + ',4))*12+VALUE(MID(' + c + ',6,2))-1)';
-    const monate = [];
-    for (let i = 0; i < 12; i++) monate.push(sp(jan + i));
-    const ges = sp(jan + 12);
-    const R = { kopf: z0, k1: z0 + 1, summe: z0 + MAX + 1, lauf: z0 + MAX + 2, zins: z0 + MAX + 3, alle: z0 + MAX + 4, alleLauf: z0 + MAX + 5, hz1: z0 + MAX + 6 };
-    setz('B' + R.kopf, MARKE_MONAT, { kapitel: true });
-    setz('C' + R.kopf, 'Nur zur Info, zählt nicht im Saldo. Wird aus dem Blatt „Finanzierung“ berechnet.', { kapitel: true });
+    const M = '(YEAR(' + X + '$' + datum + ')*12+MONTH(' + X + '$' + datum + ')-1)';
+    const teile = [];
     for (let k = 0; k < MAX; k++) {
-      const r = R.k1 + k, h = R.hz1 + k, fz = k + 2, F = c => "'Finanzierung'!" + c + fz;
-      const leer = F('A') + '=""', endf = F('D') + '="Endfälliges Darlehen"';
+      const fz = k + 2, F = c => "'Finanzierung'!" + c + fz;
       const zr = '(' + F('G') + '/1200)', rate = 'IF(' + F('I') + '>0,' + F('I') + ',' + F('F') + '*(' + F('G') + '+' + F('H') + ')/1200)';
-      const start = idx(F('J')), ende = '(' + start + '+N(' + F('K') + ')*12-1)';
-      setz('B' + r, '=IF(' + leer + ',"","Immobilie")');
-      setz('C' + r, '=IF(' + leer + ',"",' + F('A') + '&" · "&' + F('D') + ')');
-      setz('D' + r, '=IF(' + leer + ',"",IF(' + endf + ',"Sparrate Tilgungskonto","Tilgung (gedachte Ersparnis)"))');
-      monate.forEach(X => {
-        const M = '(YEAR(' + X + '$' + datum + ')*12+MONTH(' + X + '$' + datum + ')-1)', kk = '(' + M + '-' + start + ')';
-        const rest = 'MAX(0,-FV(' + zr + ',' + kk + ',-' + rate + ',' + F('F') + '))';
-        const laeuft = 'AND(' + M + '>=' + start + ',' + M + '<=' + ende + ')';
-        setz(X + r, '=IF(' + leer + ',"",IF(' + endf + ',IF(' + laeuft + ',' + F('Q') + ',0),IF(' + kk + '<0,0,IF(' + rest + '=0,0,MIN(' + rest + ',' + rate + '-' + rest + '*' + zr + ')))))');
-        setz(X + h, '=IF(' + leer + ',"",IF(' + endf + ',IF(' + laeuft + ',' + F('F') + '*' + zr + ',0),IF(' + kk + '<0,0,' + rest + '*' + zr + ')))');
-      });
-      setz(ges + r, '=IF(' + leer + ',"",SUM(' + monate[0] + r + ':' + monate[11] + r + '))');
-      setz('B' + h, 'Hilfszeile Zinsen', { grau: true });
+      const start = idx(F('J')), kk = '(' + M + '-' + start + ')', ende = '(' + start + '+N(' + F('K') + ')*12-1)';
+      const rest = 'MAX(0,-FV(' + zr + ',' + kk + ',-' + rate + ',' + F('F') + '))';
+      teile.push('IF(' + F('A') + '="",0,IF(' + F('D') + '="Endfälliges Darlehen",IF(AND(' + M + '>=' + start + ',' + M + '<=' + ende + '),N(' + F('Q') + '),0),IF(' + kk + '<0,0,IF(' + rest + '=0,0,MIN(' + rest + ',' + rate + '-' + rest + '*' + zr + ')))))');
     }
-    setz('B' + R.summe, 'Zwischensumme'); setz('C' + R.summe, 'ERSPARNIS IMMOBILIEN (MONAT)');
-    setz('B' + R.lauf, 'Fortlaufend'); setz('C' + R.lauf, 'Ersparnis Immobilien seit Januar', { fett: true });
-    setz('B' + R.zins, 'Kosten'); setz('C' + R.zins, 'Zinsen Immobilien');
-    if (spar) { setz('B' + R.alle, 'Gesamt'); setz('C' + R.alle, 'Alle Sparbeiträge inkl. Immobilien'); setz('B' + R.alleLauf, 'Fortlaufend'); setz('C' + R.alleLauf, 'Alle Sparbeiträge seit Januar', { fett: true }); }
-    monate.concat([ges]).forEach((X, i) => {
-      const zeile = r => '=SUM(' + monate[0] + r + ':' + monate[11] + r + ')';
-      setz(X + R.summe, i < 12 ? '=SUM(' + X + R.k1 + ':' + X + (R.k1 + MAX - 1) + ')' : zeile(R.summe));
-      setz(X + R.zins, i < 12 ? '=SUM(' + X + R.hz1 + ':' + X + (R.hz1 + MAX - 1) + ')' : zeile(R.zins));
-      if (spar) setz(X + R.alle, '=N(' + X + spar + ')+' + X + R.summe);
-      if (i < 12) {
-        setz(X + R.lauf, '=SUM($' + monate[0] + R.summe + ':' + X + R.summe + ')', { fett: true });
-        if (spar) setz(X + R.alleLauf, '=SUM($' + monate[0] + R.alle + ':' + X + R.alle + ')', { fett: true });
-      }
-    });
-    return { zellen: z, R, letzte: R.hz1 + MAX - 1 };
+    return '=ROUND(' + teile.join('+') + ',2)';
   }
 
-  global.ErsparnisBlock = { MARKE, MAX, KOPF, zellen, ZEILEN: 2 + 1 + MAX + 2, MARKE_MONAT, monatsZellen };
+  global.ErsparnisBlock = { MARKE, MAX, KOPF, zellen, ZEILEN: 2 + 1 + MAX + 2, ZEILE_MONAT, MARKE_MONAT_ALT, monatsFormel };
 })(typeof window !== 'undefined' ? window : globalThis);
