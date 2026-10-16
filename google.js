@@ -544,43 +544,12 @@
     });
   }
 
-  // Arbeitsblatt "Immobilienfinanzierung": Formeln auf das Blatt "Finanzierung" (Aufbau in finanzierungsblatt.js).
-  // neu=true baut ein vorhandenes Blatt komplett neu auf (eigene Eingaben dort gehen verloren).
-  async function finanzierungsBlatt(id, neu) {
-    const FB = window.FinanzierungsBlatt;
+  // Früheres Arbeitsblatt "Immobilienfinanzierung" (Test-Version bis 2026-10-16) entfernen, falls noch vorhanden.
+  async function altesBlattEntfernen(id) {
     const info = await blaetter(id);
-    let blatt = info.blaetter.find(b => b.title === FB.NAME);
-    if (blatt && !neu) return false;
-    if (blatt) await batch(id, [{ deleteSheet: { sheetId: blatt.sheetId } }]);
-    const r = await batch(id, [{ addSheet: { properties: { title: FB.NAME, gridProperties: { rowCount: 170, columnCount: 17 } } } }]);
-    const sid = r.replies[0].addSheet.properties.sheetId;
-    const farbe = h => ({ red: parseInt(h.slice(0, 2), 16) / 255, green: parseInt(h.slice(2, 4), 16) / 255, blue: parseInt(h.slice(4, 6), 16) / 255 });
-    const anfragen = FB.zellen().map(c => {
-      const m = /^([A-Z]+)(\d+)$/.exec(c.a1), spalte = m[1].charCodeAt(0) - 64, zeile = Number(m[2]);
-      const wert = c.f !== undefined ? { formulaValue: lokal(c.f, info.locale) } : (typeof c.v === 'number' ? { numberValue: c.v } : (c.v === '' ? {} : { stringValue: String(c.v) }));
-      const fmt = { textFormat: { bold: !!c.fett, italic: !!c.grau, fontSize: c.gross ? 14 : 10, foregroundColor: farbe(c.grau ? '6b7280' : '1d2330') } };
-      if (c.fmt) fmt.numberFormat = { type: /yyyy/.test(c.fmt) ? 'DATE' : 'NUMBER', pattern: c.fmt };
-      const zellDaten = { userEnteredValue: wert, userEnteredFormat: fmt };
-      if (c.liste) zellDaten.dataValidation = { condition: { type: 'ONE_OF_LIST', values: c.liste.map(x => ({ userEnteredValue: x })) }, showCustomUi: true, strict: true };
-      if (c.kapitel) fmt.backgroundColor = farbe('d9eee4');
-      else if (c.kopf) fmt.backgroundColor = farbe('eceff3');
-      else if (c.eingabe) fmt.backgroundColor = farbe('fff3b0');
-      return {
-        updateCells: {
-          range: { sheetId: sid, startRowIndex: zeile - 1, endRowIndex: zeile, startColumnIndex: spalte - 1, endColumnIndex: spalte },
-          rows: [{ values: [zellDaten] }], fields: 'userEnteredValue,userEnteredFormat,dataValidation'
-        }
-      };
-    });
-    const Z = FB.Z;
-    anfragen.push(
-      { updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 290 }, fields: 'pixelSize' } },
-      { updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: 1, endIndex: 17 }, properties: { pixelSize: 125 }, fields: 'pixelSize' } },
-      { updateDimensionProperties: { range: { sheetId: sid, dimension: 'ROWS', startIndex: Z.kHilf - 1, endIndex: Z.startJahr }, properties: { hiddenByUser: true }, fields: 'hiddenByUser' } },
-      { updateDimensionProperties: { range: { sheetId: sid, dimension: 'ROWS', startIndex: Z.hilf5 - 1, endIndex: Z.hilf5 }, properties: { hiddenByUser: true }, fields: 'hiddenByUser' } },
-      { updateSheetProperties: { properties: { sheetId: sid, gridProperties: { frozenColumnCount: 1 } }, fields: 'gridProperties.frozenColumnCount' } }
-    );
-    await batch(id, anfragen);
+    const b = info.blaetter.find(x => x.title === 'Immobilienfinanzierung');
+    if (!b) return false;
+    await batch(id, [{ deleteSheet: { sheetId: b.sheetId } }]);
     return true;
   }
 
@@ -678,6 +647,6 @@
   window.Google = {
     TEST, anmelden, abmelden, tokenAusAdresse, token, restMinuten, nutzer, NichtAngemeldet,
     meineDateien, kandidaten, verbinden, ersterFinanzplaner, jahrAnlegen,
-    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, finanzierungsBlatt, immobilienErsparnis
+    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, altesBlattEntfernen, immobilienErsparnis
   };
 })();

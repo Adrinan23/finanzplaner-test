@@ -234,9 +234,9 @@
         (i.kaufpreis ? '<div class="sub">Kaufpreis inkl. Nebenkosten: ' + euro(i.kaufpreis, false) + (Math.abs(i.kaufpreis - i.eigenkapital - fkI) > 1 ? ' · Differenz zu Eigenkapital + Kredit: ' + euro(i.kaufpreis - i.eigenkapital - fkI, false) : '') + '</div>' : '') +
         ds.map(darlehenHtml).join('') + '</div>';
     });
-    if (liste.length > 6) h += '<div class="sub">Im Arbeitsblatt „Immobilienfinanzierung“ der Tabelle werden die ersten 6 Darlehen berechnet.</div>';
+    if (liste.length > 6) h += '<div class="sub">In der Tabelle werden die ersten 6 Kredite berücksichtigt.</div>';
     h += '<button class="haupt" id="finNeu">Weiteren Kredit eintragen</button>' +
-      '<button class="zweit" id="finBlatt">Arbeitsblatt in der Tabelle neu aufbauen</button>';
+      '<button class="zweit" id="finBlatt">Tabelle aktualisieren</button>';
     return h;
   }
 
@@ -284,9 +284,8 @@
     const neu = $('finNeu'); if (neu) neu.onclick = () => bearbeite({});
     const bl = $('finBlatt');
     if (bl) bl.onclick = async () => {
-      if (!confirm('Arbeitsblatt „Immobilienfinanzierung“ in deiner Tabelle neu aufbauen?\n\nDeine Darlehen bleiben erhalten. Nur was du im Arbeitsblatt selbst in gelbe Felder eingetragen hast, wird zurückgesetzt.')) return;
-      bl.disabled = true; meldung('Baue das Arbeitsblatt auf …');
-      try { await window.Google.finanzierungsBlatt(dateiId, true); await window.Google.immobilienErsparnis(dateiId); meldung('Das Arbeitsblatt „Immobilienfinanzierung“ und der Block „Immobilien“ in den Ersparnissen sind neu aufgebaut.', 'ok'); }
+      bl.disabled = true; meldung('Aktualisiere die Tabelle …');
+      try { await window.Google.altesBlattEntfernen(dateiId); await window.Google.immobilienErsparnis(dateiId); meldung('Die Immobilien-Zeilen in „Ersparnisse - Rücklagen“ und in der Monatsübersicht sind aktualisiert.', 'ok'); }
       catch (err) { meldung(err.message || String(err), 'fehler'); if (err instanceof window.Google.NichtAngemeldet) window.Google.anmelden(true); }
       bl.disabled = false;
     };
@@ -392,9 +391,7 @@
     try {
       await window.Google.finanzierungSpeichern(dateiId, neu);
       liste = neu;
-      // Arbeitsblatt "Immobilienfinanzierung" beim ersten Speichern anlegen (rechnet danach selbst mit)
-      try { if (await window.Google.finanzierungsBlatt(dateiId, false)) text += ' Das Arbeitsblatt „Immobilienfinanzierung“ wurde in deiner Tabelle angelegt.'; }
-      catch (err) { console.warn('Arbeitsblatt nicht angelegt', err); }
+      try { await window.Google.altesBlattEntfernen(dateiId); } catch (err) { console.warn('Altes Arbeitsblatt nicht entfernt', err); }
       // Block "Immobilien" im Blatt "Ersparnisse - Rücklagen"
       try { if (await window.Google.immobilienErsparnis(dateiId)) text += ' Im Blatt „Ersparnisse - Rücklagen“ steht jetzt der Block „Immobilien“.'; }
       catch (err) { console.warn('Ersparnis-Block nicht angelegt', err); }

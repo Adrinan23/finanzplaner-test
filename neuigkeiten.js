@@ -13,14 +13,6 @@ window.NEUIGKEITEN = [
     ]
   },
   {
-    id: '2026-10-14c',
-    punkte: [
-      'Neuer Bereich „Kredite“ unten in der Leiste: Trage deine Immobilienfinanzierung mit Eigenkapital und Darlehen ein.',
-      'Die App berechnet Monatsrate, Restschuld, Zins- und Tilgungsanteil, Zinsbindungsende und wann der Kredit abbezahlt ist.',
-      'In deiner Tabelle gibt es dazu das Arbeitsblatt „Immobilienfinanzierung“ mit Tilgungsplan pro Jahr, Anschlussfinanzierung, Kaufnebenkosten-Rechner und einem Szenario-Rechner (selbst wohnen, optional mit Mietvergleich oder Vermietung).'
-    ]
-  },
-  {
     id: '2026-10-14b',
     punkte: [
       'Offline eintragen: Ohne Internet werden neue Einträge auf dem Handy gespeichert und automatisch eingetragen, sobald du wieder online bist.',
