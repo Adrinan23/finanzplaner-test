@@ -129,3 +129,7 @@ li.wartend.problem .sub { color:var(--err); }
 .zweispaltig input { min-width:0; max-width:100%; }
 input[type="month"] { -webkit-appearance:none; appearance:none; min-height:48px; text-align:left; }
 input[type="month"]::-webkit-date-and-time-value { text-align:left; }
+#finanzierung h3 { font-size:14px; margin:18px 0 2px; }
+.ampel { font-size:14px; padding:8px 10px; border-radius:10px; margin:6px 0; border:1px solid var(--line); }
+.ampel.gut { color:var(--accent); }
+.ampel.schlecht { color:var(--err); }

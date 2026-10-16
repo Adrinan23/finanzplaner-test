@@ -2,6 +2,15 @@
 // Neue Eintraege oben anfuegen. Gibt es nichts Neues, erscheint keine Meldung.
 window.NEUIGKEITEN = [
   {
+    id: '2026-10-16',
+    punkte: [
+      'Kredite neu: Du wählst nur noch zwischen Annuitätendarlehen und endfälligem Darlehen.',
+      'Beim Annuitätendarlehen trägst du die Annuität ein. Die App teilt sie in Zinsen (Kosten) und Tilgung (gedachte Ersparnis).',
+      'Beim endfälligen Darlehen trägst du dein Tilgungskonto mit Guthaben und Sparrate ein. Die App zeigt, ob es am Ende für die Rückzahlung reicht.',
+      'Oben siehst du deine Ersparnis, deine gedachte Ersparnis, die Zinsen pro Monat und wie viel dir an der Immobilie schon gehört.'
+    ]
+  },
+  {
     id: '2026-10-14c',
     punkte: [
       'Neuer Bereich „Kredite“ unten in der Leiste: Trage deine Immobilienfinanzierung mit Eigenkapital und Darlehen ein.',

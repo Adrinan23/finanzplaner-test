@@ -11,6 +11,27 @@
     { name: 'Privatdarlehen / Sonstiges', typ: 'annuitaet', info: '' }
   ];
   const typ = d => (ARTEN.find(a => a.name === d.art) || ARTEN[0]).typ;
+  // Zur Auswahl stehen nur noch diese beiden; ältere Einträge mit anderer Art werden weiter berechnet.
+  const AUSWAHL = ['Annuitätendarlehen', 'Endfälliges Darlehen'];
+  const jetztIndex = () => { const h = new Date(); return h.getFullYear() * 12 + h.getMonth(); };
+  const monatWert = idx => Math.floor(idx / 12) + '-' + String(idx % 12 + 1).padStart(2, '0');
+
+  // Tilgungskonto (endfälliges Darlehen): Guthaben n Monate nach dem Stand, Sparrate am Monatsende, Zinsen monatlich.
+  function konto(d, n) {
+    const i = (d.sparzins || 0) / 1200, g = d.guthaben || 0, s = d.sparrate || 0;
+    if (n <= 0) return g;
+    if (!i) return g + s * n;
+    const f = Math.pow(1 + i, n);
+    return g * f + s * (f - 1) / i;
+  }
+  // Sparrate, mit der das Konto in n Monaten die Summe erreicht
+  function noetigeRate(d, n) {
+    if (n <= 0) return null;
+    const i = (d.sparzins || 0) / 1200, g = d.guthaben || 0;
+    if (!i) return Math.max(0, (d.summe - g) / n);
+    const f = Math.pow(1 + i, n);
+    return Math.max(0, (d.summe - g * f) * i / (f - 1));
+  }
 
   const euro = (n, nk) => Number(n).toLocaleString('de-DE', { minimumFractionDigits: nk === false ? 0 : 2, maximumFractionDigits: nk === false ? 0 : 2 }) + ' €';
   const pz = n => Number(n).toLocaleString('de-DE', { maximumFractionDigits: 2 }) + ' %';
@@ -68,7 +89,20 @@
     const bindEnde = d.bindung > 0 ? Math.min(p.zeilen.length, d.bindung * 12) : 0;
     const restBindung = bindEnde ? p.zeilen[bindEnde - 1].rest : null;
     const fertig = p.deckt && p.zeilen.length && p.zeilen[p.zeilen.length - 1].rest <= 0.005;
+    // Tilgungskonto: Guthaben heute und am Rückzahlungsmonat
+    let tk = null;
+    if (typ(d) === 'endfaellig' && (d.guthaben > 0 || d.sparrate > 0)) {
+      const stand = monatIndex(d.guthabenStand);
+      const ab = stand === null ? jetzt : stand;
+      const endeIdx = start !== null && d.bindung > 0 ? start + d.bindung * 12 - 1 : null;
+      const heuteWert = konto(d, jetzt - ab);
+      const nEnde = endeIdx === null ? null : endeIdx - ab;
+      const endeWert = nEnde === null ? null : konto(d, nEnde);
+      tk = { heute: heuteWert, ende: endeWert, reicht: endeWert !== null && endeWert >= d.summe - 0.5,
+        fehlt: endeWert === null ? null : Math.max(0, d.summe - endeWert), noetig: nEnde === null ? null : noetigeRate(d, nEnde) };
+    }
     return {
+      konto: tk,
       rate: p.rate, deckt: p.deckt,
       rateAktuell: naechste && typ(d) === 'tilgung' ? naechste.zins + naechste.tilg : p.rate, restHeute, getilgt: startetNoch ? 0 : d.summe - restHeute,
       zinsenBisher: bisher.reduce((s, z) => s + z.zins, 0),
@@ -95,26 +129,55 @@
   const jahreText = m => { const j = Math.floor(m / 12), r = m % 12; return j + ' Jahre' + (r ? ' ' + r + ' Mon.' : ''); };
 
   function darlehenHtml(d) {
-    const a = auswertung(d);
-    const anteil = d.summe > 0 ? Math.min(100, a.getilgt / d.summe * 100) : 0;
+    const a = auswertung(d), endf = typ(d) === 'endfaellig';
+    const anteil = d.summe > 0 ? Math.min(100, (endf ? (a.konto ? a.konto.heute : 0) : a.getilgt) / d.summe * 100) : 0;
     let h = '<div class="darlehen"><div class="vkopf"><span class="vname"><b>' + esc(d.art || 'Darlehen') + '</b>' + (d.bank ? ' <span class="sub">' + esc(d.bank) + '</span>' : '') + '</span>' +
-      '<span class="betrag">' + euro(a.rateAktuell) + ' / Monat</span></div>';
+      '<span class="betrag">' + euro(a.rateAktuell + (endf ? d.sparrate || 0 : 0)) + ' / Monat</span></div>';
     if (!a.deckt) h += '<div class="sub warnung">⚠ Die Rate deckt die Zinsen nicht. Bitte Rate oder Tilgung prüfen.</div>';
+    // Aufteilung der Monatszahlung: Zinsen (Kosten) und Tilgung bzw. Sparrate (Ersparnis)
+    const zinsM = a.startetNoch ? d.summe * d.zins / 1200 : (a.naechste ? a.naechste.zins : 0);
+    const sparM = endf ? (d.sparrate || 0) : (a.naechste && !a.startetNoch ? a.naechste.tilg : 0);
+    if (zinsM + sparM > 0) {
+      const zq = zinsM / (zinsM + sparM) * 100;
+      h += '<div class="sub">' + (a.startetNoch ? 'Ab ' + monatText(monatIndex(d.beginn)) : 'Diesen Monat') + ':</div>' +
+        '<div class="aufteilung"><div class="balken" style="width:' + zq + '%;background:var(--viz-var)"></div><div class="balken" style="width:' + (100 - zq) + '%;background:var(--viz-spar)"></div></div>' +
+        '<div class="vergleich-legende sub"><span><span class="punkt" style="background:var(--viz-var)"></span>Zinsen ' + euro(zinsM) + ' (Kosten)</span>' +
+        '<span><span class="punkt" style="background:var(--viz-spar)"></span>' + (endf ? 'Sparrate ' + euro(sparM) + ' (Ersparnis)' : 'Tilgung ' + euro(sparM) + ' (gedachte Ersparnis)') + '</span></div>';
+    }
     h += '<div class="fortschritt"><div class="balken" style="width:' + Math.max(anteil > 0 ? 1.5 : 0, anteil) + '%;background:var(--viz-spar)"></div></div>' +
-      '<div class="sub vwerte">' + pz(anteil) + ' getilgt' + (a.startetNoch ? ' · beginnt ' + monatText(monatIndex(d.beginn)) : '') + '</div>';
-    h += '<div class="fraster">' +
-      zeile('Darlehenssumme', euro(d.summe, false)) +
-      zeile('Restschuld heute', '<b>' + euro(a.restHeute, false) + '</b>') +
-      zeile('Sollzins', pz(d.zins)) +
-      zeile(typ(d) === 'endfaellig' ? 'Tilgung' : 'Anfängliche Tilgung', typ(d) === 'endfaellig' ? 'am Ende' : (d.rate > 0 && d.summe ? pz(Math.max(0, a.rate * 12 / d.summe * 100 - d.zins)) : (d.tilgung ? pz(d.tilgung) : '–'))) +
-      (a.naechste ? zeile('Nächste Rate', euro(a.naechste.zins) + ' Zins + ' + euro(a.naechste.tilg) + ' Tilgung', 'breit') : '') +
-      (a.bindungEnde !== null ? zeile('Zinsbindung bis', monatText(a.bindungEnde)) + zeile('Restschuld dann', a.deckt && a.restBindung !== null ? euro(a.restBindung, false) : '–') : '') +
-      zeile('Bisher gezahlte Zinsen', euro(a.zinsenBisher, false)) +
-      zeile('Zinsen gesamt', a.laufzeit ? euro(a.zinsenGesamt, false) : '–') +
-      zeile('Abbezahlt', a.ende !== null ? monatText(a.ende) + ' <span class="sub">(' + jahreText(a.laufzeit) + ')</span>' : (typ(d) === 'endfaellig' ? 'am Laufzeitende' : '–'), 'breit') +
-      (d.sonder ? zeile('Sondertilgung erlaubt', pz(d.sonder) + ' pro Jahr = ' + euro(d.summe * d.sonder / 100, false)) : '') +
-      '</div>';
-    if (a.startetNoch) h += '<div class="sub">Zählt erst ab ' + monatText(monatIndex(d.beginn)) + ' zur Restschuld. Hinweis: Das Darlehen, das es ablöst, wird bis zur vollständigen Rückzahlung weitergerechnet. Im Tilgungsplan der Tabelle stehen ab dann beide.</div>';
+      '<div class="sub vwerte">' + pz(anteil) + (endf ? ' auf dem Tilgungskonto angespart' : ' getilgt') + (a.startetNoch ? ' · beginnt ' + monatText(monatIndex(d.beginn)) : '') + '</div>';
+    if (endf) {
+      const k = a.konto;
+      h += '<div class="fraster">' +
+        zeile('Darlehenssumme', euro(d.summe, false)) +
+        zeile('Sollzins', pz(d.zins)) +
+        zeile('Tilgungskonto heute', '<b>' + euro(k ? k.heute : 0, false) + '</b>') +
+        zeile('Sparrate', euro(d.sparrate || 0) + (d.sparzins ? ' <span class="sub">(' + pz(d.sparzins) + ' Zinsen)</span>' : '')) +
+        zeile('Rückzahlung', a.bindungEnde !== null ? monatText(a.bindungEnde) : '–') +
+        zeile('Konto dann', k && k.ende !== null ? euro(k.ende, false) : '–') +
+        zeile('Bisher gezahlte Zinsen', euro(a.zinsenBisher, false)) +
+        zeile('Zinsen gesamt', d.bindung > 0 ? euro(a.zinsenGesamt, false) : '–') +
+        '</div>';
+      if (k && k.ende !== null) {
+        h += k.reicht
+          ? '<div class="ampel gut">✓ Das Tilgungskonto reicht voraussichtlich' + (k.ende - d.summe >= 1 ? ', es bleiben etwa ' + euro(k.ende - d.summe, false) + ' übrig' : '') + '.</div>'
+          : '<div class="ampel schlecht">⚠ Am Ende fehlen voraussichtlich ' + euro(k.fehlt, false) + '. Dafür bräuchtest du ' + euro(k.noetig) + ' Sparrate pro Monat statt ' + euro(d.sparrate || 0) + '.</div>';
+      } else if (!(d.bindung > 0)) h += '<div class="sub">Trage die Laufzeit bis zur Rückzahlung ein, dann prüft die App, ob das Tilgungskonto reicht.</div>';
+      else h += '<div class="sub">Trage Guthaben und Sparrate des Tilgungskontos ein, dann prüft die App, ob es am Ende reicht.</div>';
+    } else {
+      h += '<div class="fraster">' +
+        zeile('Darlehenssumme', euro(d.summe, false)) +
+        zeile('Restschuld heute', '<b>' + euro(a.restHeute, false) + '</b>') +
+        zeile('Sollzins', pz(d.zins)) +
+        zeile('Gedachte Ersparnis', '<b>' + euro(a.getilgt, false) + '</b>') +
+        (a.bindungEnde !== null ? zeile('Zinsbindung bis', monatText(a.bindungEnde)) + zeile('Restschuld dann', a.deckt && a.restBindung !== null ? euro(a.restBindung, false) : '–') : '') +
+        zeile('Bisher gezahlte Zinsen', euro(a.zinsenBisher, false)) +
+        zeile('Zinsen gesamt', a.laufzeit ? euro(a.zinsenGesamt, false) : '–') +
+        zeile('Abbezahlt', a.ende !== null ? monatText(a.ende) + ' <span class="sub">(' + jahreText(a.laufzeit) + ')</span>' : '–', 'breit') +
+        (d.sonder ? zeile('Sondertilgung erlaubt', pz(d.sonder) + ' pro Jahr = ' + euro(d.summe * d.sonder / 100, false)) : '') +
+        '</div>';
+    }
+    if (a.startetNoch) h += '<div class="sub">Zählt erst ab ' + monatText(monatIndex(d.beginn)) + ' zur Restschuld.</div>';
     if (d.notiz) h += '<div class="sub">' + esc(d.notiz) + '</div>';
     h += '<div class="faktionen"><button class="undo" data-bearbeiten="' + esc(d.id) + '">Bearbeiten</button>' +
       '<button class="undo" data-loeschen="' + esc(d.id) + '">Löschen</button></div></div>';
@@ -123,53 +186,77 @@
 
   function ansicht(liste) {
     if (!liste.length) {
-      return '<div class="card"><h2>Noch keine Finanzierung eingetragen</h2>' +
-        '<div class="sub">Trage hier bestehende Immobilienkredite ein. Die App berechnet Restschuld, Zins- und Tilgungsanteil und wann der Kredit abbezahlt ist.</div>' +
-        '<button class="haupt" id="finNeu">Darlehen eintragen</button></div>';
+      return '<div class="card"><h2>Noch keinen Kredit eingetragen</h2>' +
+        '<div class="sub">Trage hier dein Annuitätendarlehen oder endfälliges Darlehen ein. Die App teilt jede Rate in Zinsen (Kosten) und Tilgung bzw. Sparrate (Ersparnis) und zeigt, wie viel dir schon gehört.</div>' +
+        '<button class="haupt" id="finNeu">Kredit eintragen</button></div>';
     }
     const ims = immobilien(liste);
     const ausw = liste.map(auswertung);
-    const sum = f => ims.reduce((s, i) => s + f(i), 0);
-    const fk = liste.reduce((s, d, i) => s + (ausw[i].startetNoch ? 0 : d.summe), 0), spaeter = liste.reduce((s, d, i) => s + (ausw[i].startetNoch ? d.summe : 0), 0), rest = ausw.reduce((s, a) => s + a.restHeute, 0), raten = ausw.reduce((s, a) => s + (a.startetNoch || !a.naechste ? 0 : a.rateAktuell), 0);
+    const summe = f => liste.reduce((s, d, i) => s + f(d, ausw[i]), 0);
+    const endf = d => typ(d) === 'endfaellig';
+    const laeuft = (d, a) => !a.startetNoch && (endf(d) ? a.bindungEnde === null || a.bindungEnde >= jetztIndex() : !!a.naechste);
+    const echt = summe((d, a) => a.konto ? a.konto.heute : 0);
+    const echtM = summe((d, a) => endf(d) ? d.sparrate || 0 : 0);
+    const gedacht = summe((d, a) => endf(d) ? 0 : a.getilgt);
+    const gedachtM = summe((d, a) => !endf(d) && laeuft(d, a) ? a.naechste.tilg : 0);
+    const zinsM = summe((d, a) => laeuft(d, a) && a.naechste ? a.naechste.zins : 0);
+    const zinsBisher = summe((d, a) => a.zinsenBisher);
+    const fk = summe((d, a) => a.startetNoch ? 0 : d.summe), spaeter = summe((d, a) => a.startetNoch ? d.summe : 0), rest = summe((d, a) => a.restHeute);
     let h = '<div class="kacheln">' +
-      '<div class="kachel"><div class="sub">Restschuld heute</div><div class="wert">' + euro(rest, false) + '</div><div class="sub">von ' + euro(fk, false) + ' Fremdkapital' + (spaeter ? ', dazu ' + euro(spaeter, false) + ' später' : '') + '</div></div>' +
-      '<div class="kachel"><div class="sub">Raten pro Monat</div><div class="wert">' + euro(raten) + '</div><div class="sub">' + liste.length + (liste.length === 1 ? ' Darlehen' : ' Darlehen') + '</div></div>' +
-      '<div class="kachel"><div class="sub">Eigenkapital</div><div class="wert">' + euro(sum(i => i.eigenkapital), false) + '</div><div class="sub">eingesetzt</div></div>' +
-      '<div class="kachel"><div class="sub">Bereits getilgt</div><div class="wert">' + euro(fk - rest, false) + '</div><div class="sub">' + (fk ? pz((fk - rest) / fk * 100) : '–') + '</div></div>' +
+      '<div class="kachel"><div class="sub">Ersparnis (Tilgungskonten)</div><div class="wert">' + euro(echt, false) + '</div><div class="sub">+ ' + euro(echtM, false) + ' pro Monat</div></div>' +
+      '<div class="kachel"><div class="sub">Gedachte Ersparnis (getilgt)</div><div class="wert">' + euro(gedacht, false) + '</div><div class="sub">+ ' + euro(gedachtM, false) + ' pro Monat</div></div>' +
+      '<div class="kachel"><div class="sub">Zinsen pro Monat</div><div class="wert">' + euro(zinsM, false) + '</div><div class="sub">bisher ' + euro(zinsBisher, false) + ' gezahlt</div></div>' +
+      '<div class="kachel"><div class="sub">Restschuld heute</div><div class="wert">' + euro(rest, false) + '</div><div class="sub">von ' + euro(fk, false) + (spaeter ? ', dazu ' + euro(spaeter, false) + ' später' : '') + '</div></div>' +
       '</div>';
     ims.forEach(i => {
-      const fkI = i.darlehen.reduce((s, d) => s + d.summe, 0), gesamt = i.kaufpreis || (i.eigenkapital + fkI);
-      const ekQuote = gesamt > 0 ? i.eigenkapital / gesamt * 100 : 0;
+      const ds = i.darlehen, aw = ds.map(auswertung);
+      const fkI = ds.reduce((s, d) => s + d.summe, 0), gesamt = i.kaufpreis || (i.eigenkapital + fkI);
+      const get = ds.reduce((s, d, k) => s + (endf(d) ? 0 : aw[k].getilgt), 0);
+      const kto = aw.reduce((s, a) => s + (a.konto ? a.konto.heute : 0), 0);
+      const basis = Math.max(gesamt, i.eigenkapital + fkI, 1);
+      const teile = [
+        ['Eigenkapital', i.eigenkapital, 'var(--viz-fix)'],
+        ['Getilgt', get, 'var(--viz-spar)'],
+        ['Tilgungskonto', kto, 'var(--viz-spar);opacity:.5']
+      ].filter(t => t[1] > 0);
+      const meins = teile.reduce((s, t) => s + t[1], 0);
       h += '<div class="card"><h2>' + esc(i.name) + '</h2>' +
-        '<div class="aufteilung"><div class="balken" style="width:' + ekQuote + '%;background:var(--viz-spar)"></div><div class="balken" style="width:' + (100 - ekQuote) + '%;background:var(--viz-fix)"></div></div>' +
-        '<div class="vergleich-legende sub"><span><span class="punkt" style="background:var(--viz-spar)"></span>Eigenkapital ' + euro(i.eigenkapital, false) + ' (' + pz(ekQuote) + ')</span>' +
-        '<span><span class="punkt" style="background:var(--viz-fix)"></span>Fremdkapital ' + euro(fkI, false) + '</span></div>' +
-        (i.kaufpreis ? '<div class="sub">Kaufpreis inkl. Nebenkosten: ' + euro(i.kaufpreis, false) + (Math.abs(i.kaufpreis - i.eigenkapital - fkI) > 1 ? ' · Differenz zu EK + Darlehen: ' + euro(i.kaufpreis - i.eigenkapital - fkI, false) : '') + '</div>' : '') +
-        i.darlehen.map(darlehenHtml).join('') + '</div>';
+        '<div class="sub">Was dir schon gehört: <b>' + euro(meins, false) + '</b> von ' + euro(basis, false) + ' (' + pz(Math.min(100, meins / basis * 100)) + ')</div>' +
+        '<div class="aufteilung">' + teile.map(t => '<div class="balken" style="width:' + Math.min(100, t[1] / basis * 100) + '%;background:' + t[2] + '"></div>').join('') + '</div>' +
+        '<div class="vergleich-legende sub">' + teile.map(t => '<span><span class="punkt" style="background:' + t[2] + '"></span>' + t[0] + ' ' + euro(t[1], false) + '</span>').join('') +
+        '<span><span class="punkt" style="background:var(--viz-frei)"></span>Noch offen ' + euro(Math.max(0, basis - meins), false) + '</span></div>' +
+        (i.kaufpreis ? '<div class="sub">Kaufpreis inkl. Nebenkosten: ' + euro(i.kaufpreis, false) + (Math.abs(i.kaufpreis - i.eigenkapital - fkI) > 1 ? ' · Differenz zu Eigenkapital + Kredit: ' + euro(i.kaufpreis - i.eigenkapital - fkI, false) : '') + '</div>' : '') +
+        ds.map(darlehenHtml).join('') + '</div>';
     });
     if (liste.length > 6) h += '<div class="sub">Im Arbeitsblatt „Immobilienfinanzierung“ der Tabelle werden die ersten 6 Darlehen berechnet.</div>';
-    h += '<button class="haupt" id="finNeu">Weiteres Darlehen eintragen</button>' +
+    h += '<button class="haupt" id="finNeu">Weiteren Kredit eintragen</button>' +
       '<button class="zweit" id="finBlatt">Arbeitsblatt in der Tabelle neu aufbauen</button>';
     return h;
   }
 
   function formular(d, liste) {
     const namen = immobilien(liste).map(i => i.name);
-    const feld = (id, label, wert, extra) => '<label for="' + id + '">' + label + '</label><input id="' + id + '" value="' + esc(wert === 0 || wert === undefined ? '' : String(wert).replace('.', ',')) + '" ' + (extra || 'inputmode="decimal" autocomplete="off"') + '>';
-    return '<div class="card"><h2>' + (d.id ? 'Darlehen bearbeiten' : 'Darlehen eintragen') + '</h2>' +
+    const zahlText = w => w === 0 || w === undefined || w === '' ? '' : String(Math.round(w * 100) / 100).replace('.', ',');
+    const feld = (id, label, wert, extra) => '<label for="' + id + '">' + label + '</label><input id="' + id + '" value="' + esc(zahlText(wert)) + '" ' + (extra || 'inputmode="decimal" autocomplete="off"') + '>';
+    const arten = AUSWAHL.indexOf(d.art) < 0 && d.art ? AUSWAHL.concat([d.art]) : AUSWAHL;
+    const kHeute = d.id && typ(d) === 'endfaellig' ? (auswertung(d).konto || { heute: d.guthaben }).heute : d.guthaben;
+    return '<div class="card"><h2>' + (d.id ? 'Kredit bearbeiten' : 'Kredit eintragen') + '</h2>' +
+      '<label for="fArt">Kreditart</label><select id="fArt">' + arten.map(a => '<option' + (a === d.art ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>' +
+      '<div class="sub" id="fArtInfo"></div>' +
       '<label for="fImmo">Immobilie</label><input id="fImmo" list="fImmoListe" placeholder="z. B. Wohnung Hauptstraße" value="' + esc(d.immobilie || '') + '" autocomplete="off">' +
       '<datalist id="fImmoListe">' + namen.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>' +
-      '<div class="zweispaltig"><div>' + feld('fKauf', 'Kaufpreis inkl. Nebenkosten (€)', d.kaufpreis) + '</div><div>' + feld('fEk', 'Eigenkapital (€)', d.eigenkapital) + '</div></div>' +
-      '<div class="sub">Kaufpreis und Eigenkapital gelten für die ganze Immobilie, auch wenn sie mehrere Darlehen hat.</div>' +
-      '<label for="fArt">Kreditart</label><select id="fArt">' + ARTEN.map(a => '<option' + (a.name === d.art ? ' selected' : '') + '>' + a.name + '</option>').join('') + '</select>' +
-      '<div class="sub" id="fArtInfo"></div>' +
+      '<div class="zweispaltig"><div>' + feld('fKauf', 'Kaufpreis inkl. NK (€)', d.kaufpreis) + '</div><div>' + feld('fEk', 'Eigenkapital (€)', d.eigenkapital) + '</div></div>' +
       '<label for="fBank">Bank / Kreditgeber</label><input id="fBank" value="' + esc(d.bank || '') + '" autocomplete="off">' +
-      '<div class="zweispaltig"><div>' + feld('fSumme', 'Darlehenssumme (€)', d.summe) + '</div><div>' + feld('fZins', 'Sollzins (% p.a.)', d.zins) + '</div></div>' +
-      '<div class="zweispaltig"><div>' + feld('fTilg', 'Anfängl. Tilgung (% p.a.)', d.tilgung) + '</div><div>' + feld('fRate', 'oder Monatsrate (€)', d.rate) + '</div></div>' +
+      '<div class="zweispaltig"><div>' + feld('fSumme', 'Kreditsumme (€)', d.summe) + '</div><div>' + feld('fZins', 'Sollzins (% p.a.)', d.zins) + '</div></div>' +
+      '<div id="fNurAnnu"><div class="zweispaltig"><div>' + feld('fRate', 'Annuität / Monat (€)', d.rate) + '</div><div>' + feld('fTilg', 'oder Tilgung (% p.a.)', d.tilgung) + '</div></div></div>' +
       '<div class="sub" id="fRateInfo"></div>' +
       '<div class="zweispaltig"><div><label for="fBeginn">Erste Rate (Monat)</label><input id="fBeginn" type="month" value="' + esc(d.beginn || '') + '"></div>' +
       '<div>' + feld('fBind', 'Zinsbindung (Jahre)', d.bindung, 'inputmode="numeric" autocomplete="off"') + '</div></div>' +
-      feld('fSonder', 'Sondertilgung erlaubt (% p.a., optional)', d.sonder) +
+      '<div id="fNurEndf"><h3>Tilgungskonto</h3><div class="sub">Hier sparst du parallel an, um den Kredit am Ende auf einmal zurückzuzahlen.</div>' +
+      '<div class="zweispaltig"><div>' + feld('fGuthaben', 'Guthaben heute (€)', kHeute) + '</div><div>' + feld('fSparrate', 'Sparrate / Monat (€)', d.sparrate) + '</div></div>' +
+      feld('fSparzins', 'Verzinsung des Kontos (% p.a., optional)', d.sparzins) +
+      '<div class="sub" id="fKontoInfo"></div></div>' +
+      '<div id="fSonderBox">' + feld('fSonder', 'Sondertilgung erlaubt (% p.a., optional)', d.sonder) + '</div>' +
       '<label for="fNotiz">Notiz (optional)</label><input id="fNotiz" value="' + esc(d.notiz || '') + '" autocomplete="off">' +
       '<button class="haupt" id="fSpeichern">Speichern</button><button class="zweit" id="fAbbrechen">Abbrechen</button>' +
       '<div class="meldung" id="fMeldung"></div></div>';
@@ -205,10 +292,26 @@
     window.scrollTo(0, 0);
     const info = () => {
       const a = ARTEN.find(x => x.name === $('fArt').value);
-      $('fArtInfo').textContent = a ? a.info : '';
-      const v = werte();
-      const r = v.summe && (v.zins || v.tilgung || v.rate) ? rateVon(Object.assign({}, v)) : 0;
-      $('fRateInfo').textContent = r ? (v.rate ? 'Rate wie eingetragen: ' : 'Berechnete Monatsrate: ') + euro(r) + ' (davon anfangs ' + euro(v.summe * v.zins / 100 / 12) + ' Zinsen)' : '';
+      const v = werte(), endf = typ(v) === 'endfaellig';
+      $('fArtInfo').textContent = endf
+        ? 'Du zahlst jeden Monat nur Zinsen und sparst parallel auf ein Tilgungskonto. Am Ende wird der Kredit damit auf einmal zurückgezahlt.'
+        : (v.art === 'Annuitätendarlehen' ? 'Feste Monatsrate (Annuität). Sie teilt sich in Zinsen und Tilgung: Der Zinsanteil sinkt, die Tilgung steigt. Die Tilgung zählt als gedachte Ersparnis.' : (a ? a.info : ''));
+      $('fNurAnnu').hidden = endf; $('fNurEndf').hidden = !endf; $('fSonderBox').hidden = endf;
+      $('fBind').previousElementSibling.textContent = endf ? 'Laufzeit (Jahre)' : 'Zinsbindung (Jahre)';
+      if (endf) {
+        $('fRateInfo').textContent = v.summe && v.zins ? 'Zinsen pro Monat: ' + euro(v.summe * v.zins / 1200) : '';
+        const p = Object.assign({}, v, { guthabenStand: monatWert(jetztIndex()) });
+        const s = monatIndex(v.beginn);
+        if (v.summe && v.bindung > 0 && s !== null && (v.guthaben || v.sparrate)) {
+          const n = s + v.bindung * 12 - 1 - jetztIndex(), e = konto(p, n);
+          $('fKontoInfo').textContent = 'Bis ' + monatText(s + v.bindung * 12 - 1) + ' voraussichtlich ' + euro(e, false) + ' auf dem Konto. ' +
+            (e >= v.summe - 0.5 ? 'Das reicht für die Rückzahlung.' : 'Es fehlen ' + euro(v.summe - e, false) + ', nötig wären ' + euro(noetigeRate(p, n)) + ' pro Monat.');
+        } else $('fKontoInfo').textContent = '';
+      } else {
+        const r = v.summe && (v.zins || v.tilgung || v.rate) ? rateVon(Object.assign({}, v)) : 0;
+        const z = v.summe * v.zins / 1200;
+        $('fRateInfo').textContent = r ? (v.rate ? 'Annuität ' : 'Berechnete Annuität ') + euro(r) + ': am Anfang ' + euro(z) + ' Zinsen und ' + euro(Math.max(0, r - z)) + ' Tilgung' : '';
+      }
     };
     const fImmo = $('fImmo');
     fImmo.onchange = () => {
@@ -219,12 +322,18 @@
     info();
     $('fAbbrechen').onclick = zeichne;
     $('fSpeichern').onclick = async () => {
-      const v = werte();
+      const v = werte(), endf = typ(v) === 'endfaellig';
       if (!v.immobilie) return meldung('Bitte einen Namen für die Immobilie eintragen.', 'fehler');
-      if (!(v.summe > 0)) return meldung('Bitte die Darlehenssumme eintragen.', 'fehler');
-      if (!(v.zins > 0) && !(v.rate > 0) && !(v.tilgung > 0)) return meldung('Bitte den Sollzins, die Tilgung oder die Monatsrate eintragen.', 'fehler');
+      if (!(v.summe > 0)) return meldung('Bitte die Kreditsumme eintragen.', 'fehler');
       if (!v.beginn) return meldung('Bitte den Monat der ersten Rate wählen.', 'fehler');
-      if (typ(v) !== 'endfaellig' && !(v.tilgung > 0) && !(v.rate > 0)) return meldung('Bitte die anfängliche Tilgung oder die Monatsrate eintragen.', 'fehler');
+      if (endf) {
+        if (!(v.zins > 0)) return meldung('Bitte den Sollzins eintragen.', 'fehler');
+        if (!(v.bindung > 0)) return meldung('Bitte die Laufzeit bis zur Rückzahlung eintragen.', 'fehler');
+        v.rate = 0; v.tilgung = 0; v.sonder = 0;
+      } else {
+        if (!(v.tilgung > 0) && !(v.rate > 0)) return meldung('Bitte die Annuität (Monatsrate) oder die anfängliche Tilgung eintragen.', 'fehler');
+        v.guthaben = 0; v.sparrate = 0; v.sparzins = 0; v.guthabenStand = '';
+      }
       v.id = d.id || Date.now().toString(36);
       let neu = d.id ? liste.map(x => x.id === d.id ? v : x) : liste.concat([v]);
       // Kaufpreis und Eigenkapital gelten für alle Darlehen derselben Immobilie
@@ -239,7 +348,10 @@
       immobilie: $('fImmo').value.trim(), kaufpreis: zahl($('fKauf').value), eigenkapital: zahl($('fEk').value),
       art: $('fArt').value, bank: $('fBank').value.trim(), summe: zahl($('fSumme').value), zins: zahl($('fZins').value),
       tilgung: zahl($('fTilg').value), rate: zahl($('fRate').value), beginn: $('fBeginn').value,
-      bindung: zahl($('fBind').value), sonder: zahl($('fSonder').value), notiz: $('fNotiz').value.trim()
+      bindung: zahl($('fBind').value), sonder: zahl($('fSonder').value), notiz: $('fNotiz').value.trim(),
+      guthaben: zahl($('fGuthaben').value), sparrate: zahl($('fSparrate').value), sparzins: zahl($('fSparzins').value),
+      // Das Guthaben gilt ab dem aktuellen Monat; danach rechnet die App mit Sparrate und Zinsen weiter
+      guthabenStand: monatWert(jetztIndex())
     };
   }
 
