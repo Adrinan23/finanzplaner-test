@@ -624,7 +624,54 @@
       anfragen.push({ updateCells: { range: bereich(zeile, zeile, spalte, spalte), rows: [{ values: [zelle] }], fields: felder } });
     });
     await batch(id, anfragen);
+    try { await immobilienMonat(id, info); } catch (err) { console.warn('Immobilien-Block in der Monatsübersicht nicht angelegt', err); }
     return neu;
+  }
+
+  // Block "Immobilien" ganz unten in der Monatsübersicht (Aufbau in ersparnisblock.js). Steht unter der
+  // Gesamt-Konsolidierung, damit er nicht als Bereich zum Eintragen gilt und nicht in den Saldo zählt.
+  async function immobilienMonat(id, info) {
+    const EB = window.ErsparnisBlock;
+    info = info || await blaetter(id);
+    const blatt = monatsBlatt(info);
+    const [z] = await werteHolen(id, [q(blatt.title) + '!A1:Z400'], 'FORMATTED_VALUE');
+    const text = (r, c) => String(((z[r] || [])[c]) || '').trim();
+    let kopf = -1, jan = -1;
+    for (let r = 0; r < Math.min(15, z.length) && kopf < 0; r++) {
+      const c = (z[r] || []).findIndex(v => String(v).trim() === 'Januar');
+      if (c >= 0) { kopf = r; jan = c; }
+    }
+    if (kopf < 0) return false;
+    const gesamt = z.findIndex((r, i) => /^MONATLICHE GESAMT/.test(text(i, 1)));
+    if (gesamt < 0) return false;
+    let z0 = z.findIndex((r, i) => text(i, 1) === EB.MARKE_MONAT) + 1;
+    if (!z0) z0 = z.length + 2;
+    // Sparbereich (Überschrift mit "SPAR") und seine Zwischensumme: Formate und Summe der Sparbeiträge
+    const sparKopf = z.findIndex((r, i) => i < gesamt && /^\d+\.\s/.test(text(i, 1)) && /SPAR/i.test(text(i, 1)));
+    let sparSumme = -1;
+    if (sparKopf >= 0) for (let r = sparKopf + 1; r < gesamt; r++) if (text(r, 1) === 'Zwischensumme') { sparSumme = r; break; }
+    const m = EB.monatsZellen(z0, jan + 1, kopf + 2, sparSumme >= 0 ? sparSumme + 1 : 0);
+    const sid = blatt.sheetId, g = blatt.gridProperties || {};
+    const anfragen = [];
+    if ((g.rowCount || 0) < m.letzte) anfragen.push({ appendDimension: { sheetId: sid, dimension: 'ROWS', length: m.letzte - (g.rowCount || 0) } });
+    const breite = jan + 14;
+    const bereich = (z1, z2) => ({ sheetId: sid, startRowIndex: z1 - 1, endRowIndex: z2, startColumnIndex: 0, endColumnIndex: breite });
+    const formatVon = (quelle, z1, z2) => ({ copyPaste: { source: bereich(quelle, quelle), destination: bereich(z1, z2), pasteType: 'PASTE_FORMAT' } });
+    const R = m.R;
+    if (sparKopf >= 0) {
+      anfragen.push(formatVon(sparKopf + 1, R.kopf, R.kopf), formatVon(sparKopf + 2, R.k1, R.k1 + EB.MAX - 1), formatVon(sparKopf + 2, R.zins, R.zins), formatVon(sparKopf + 2, R.hz1, m.letzte));
+      if (sparSumme >= 0) anfragen.push(formatVon(sparSumme + 1, R.summe, R.lauf), formatVon(sparSumme + 1, R.alle, R.alleLauf));
+    }
+    m.zellen.forEach(c => {
+      const mm = /^([A-Z]+)(\d+)$/.exec(c.a1), spalte = mm[1].charCodeAt(0) - 64, zeile = Number(mm[2]);
+      const zelle = { userEnteredValue: c.f !== undefined ? { formulaValue: lokal(c.f, info.locale) } : { stringValue: String(c.v) } };
+      let felder = 'userEnteredValue';
+      if (c.fett) { zelle.userEnteredFormat = { textFormat: { bold: true } }; felder += ',userEnteredFormat.textFormat.bold'; }
+      anfragen.push({ updateCells: { range: { sheetId: sid, startRowIndex: zeile - 1, endRowIndex: zeile, startColumnIndex: spalte - 1, endColumnIndex: spalte }, rows: [{ values: [zelle] }], fields: felder } });
+    });
+    anfragen.push({ updateDimensionProperties: { range: { sheetId: sid, dimension: 'ROWS', startIndex: R.hz1 - 1, endIndex: m.letzte }, properties: { hiddenByUser: true }, fields: 'hiddenByUser' } });
+    await batch(id, anfragen);
+    return true;
   }
 
   window.Google = {
