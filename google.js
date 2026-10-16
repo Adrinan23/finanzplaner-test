@@ -168,6 +168,20 @@
     if (String(inhalt).charAt(0) === '=') return { formulaValue: String(inhalt) };
     return { numberValue: Number(inhalt) };
   }
+  // Formeln aus der App sind mit Komma geschrieben. Die Sheets-API liest sie in der Sprache der Tabelle;
+  // bei Komma als Dezimalzeichen (z. B. Deutsch) trennt dort das Semikolon die Argumente.
+  function lokal(formel, locale) {
+    let komma = false;
+    try { komma = (1.5).toLocaleString(String(locale || 'en').replace('_', '-')).indexOf(',') >= 0; } catch (e) { komma = false; }
+    if (!komma) return formel;
+    let aus = '', inText = false, inName = false;
+    for (const ch of formel) {
+      if (ch === '"' && !inName) inText = !inText;
+      else if (ch === "'" && !inText) inName = !inName;
+      aus += ch === ',' && !inText && !inName ? ';' : ch;
+    }
+    return aus;
+  }
   function updateZelle(sheetId, zeile, spalte, inhalt) {
     return {
       updateCells: {
@@ -543,7 +557,7 @@
     const farbe = h => ({ red: parseInt(h.slice(0, 2), 16) / 255, green: parseInt(h.slice(2, 4), 16) / 255, blue: parseInt(h.slice(4, 6), 16) / 255 });
     const anfragen = FB.zellen().map(c => {
       const m = /^([A-Z]+)(\d+)$/.exec(c.a1), spalte = m[1].charCodeAt(0) - 64, zeile = Number(m[2]);
-      const wert = c.f !== undefined ? { formulaValue: c.f } : (typeof c.v === 'number' ? { numberValue: c.v } : (c.v === '' ? {} : { stringValue: String(c.v) }));
+      const wert = c.f !== undefined ? { formulaValue: lokal(c.f, info.locale) } : (typeof c.v === 'number' ? { numberValue: c.v } : (c.v === '' ? {} : { stringValue: String(c.v) }));
       const fmt = { textFormat: { bold: !!c.fett, italic: !!c.grau, fontSize: c.gross ? 14 : 10, foregroundColor: farbe(c.grau ? '6b7280' : '1d2330') } };
       if (c.fmt) fmt.numberFormat = { type: /yyyy/.test(c.fmt) ? 'DATE' : 'NUMBER', pattern: c.fmt };
       const zellDaten = { userEnteredValue: wert, userEnteredFormat: fmt };
@@ -601,7 +615,7 @@
     }
     EB.zellen(z0, gesamt).forEach(c => {
       const m = /^([A-Z]+)(\d+)$/.exec(c.a1), spalte = m[1].charCodeAt(0) - 64, zeile = Number(m[2]);
-      const zelle = { userEnteredValue: c.f !== undefined ? { formulaValue: c.f } : { stringValue: String(c.v) } };
+      const zelle = { userEnteredValue: c.f !== undefined ? { formulaValue: lokal(c.f, info.locale) } : { stringValue: String(c.v) } };
       let felder = 'userEnteredValue';
       if (c.fett || c.grau || (c.kopf && !kopf)) {
         zelle.userEnteredFormat = { textFormat: { bold: !!(c.fett || c.kopf), italic: !!c.grau } };
