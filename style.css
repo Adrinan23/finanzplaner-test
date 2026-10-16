@@ -134,3 +134,4 @@ input[type="month"]::-webkit-date-and-time-value { text-align:left; }
 .ampel.gut { color:var(--accent); }
 .ampel.schlecht { color:var(--err); }
 #fSonderBox label { margin-top:14px; }
+#fAnnuHinweis { margin-bottom:6px; } #fRateInfo { font-weight:600; }
