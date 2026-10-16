@@ -544,6 +544,68 @@
     });
   }
 
+  // ---------- Hinweise in der Tabelle ----------
+  // Was man in der Tabelle von Hand ändern darf: kurzer Text plus ausführliche Notiz (erscheint beim Darüberfahren).
+  // Wird nur in leere Zellen oder über einen früheren Hinweis der App geschrieben.
+  const HINWEIS = 'Hinweis zum Bearbeiten: Maus über diese Zelle halten (bzw. antippen) für die Notiz.';
+  const NOTIZ_TABELLE = [
+    'Was du in der Tabelle von Hand ändern darfst:',
+    '• Beträge in den Monatsspalten (Januar bis Dezember) eintragen oder ändern, auch als Rechnung wie =12,50+3.',
+    '• Texte in der Spalte mit den Anmerkungen.',
+    '• Im Blatt „Ersparnisse - Rücklagen“: Sparrate, aktueller Stand und Zielbestand deiner Sparziele.',
+    '• Im Blatt „Finanzierung“: die Werte deiner Kredite (einfacher in der App unter „Immobilien“).',
+    '',
+    'Bitte nicht:',
+    '• Zeilen oder Spalten einfügen, löschen oder verschieben. Neue Posten übernimmt die App aus der Vorlage.',
+    '• Blätter umbenennen oder Überschriften, Kategorien und Postennamen ändern. Die App findet alles über diese Namen.',
+    '• Zellen mit Formeln überschreiben: Zwischensummen, Gesamtwerte, Fortschritt, verbleibende Monate und alle Zeilen mit „(automatisch)“.'
+  ].join('\n');
+  const NOTIZ_FINANZIERUNG = [
+    'Blatt „Finanzierung“: Hier speichert die App deine Kredite, eine Zeile pro Kredit (berechnet werden die ersten 6).',
+    '',
+    'Erlaubt: Zahlen ändern (Darlehenssumme, Sollzins, Monatsrate, Zinsbindung, Tilgungskonto). Beginn als JJJJ-MM, z. B. 2026-01.',
+    'Wichtig: Die Monatsrate gilt vor der Laufzeit. Wenn du die Laufzeit änderst, passe auch die Monatsrate an, am einfachsten in der App.',
+    '',
+    'Bitte nicht: Spalten einfügen oder verschieben, Überschriften oder die Spalte ID ändern, Leerzeilen zwischen Krediten lassen.',
+    'Kreditart genau so schreiben: „Annuitätendarlehen“ oder „Endfälliges Darlehen“.'
+  ].join('\n');
+  const NOTIZ_AUTO = 'Rechnet sich automatisch aus dem Blatt „Finanzierung“. Bitte hier nichts eintippen; Kredite in der App unter „Immobilien“ ändern.';
+
+  function notizZelle(sheetId, zeile, spalte, text, notiz, grau) {
+    const zelle = { note: notiz };
+    let felder = 'note';
+    if (text !== null) {
+      zelle.userEnteredValue = { stringValue: text };
+      felder += ',userEnteredValue';
+      if (grau) { zelle.userEnteredFormat = { textFormat: { italic: true, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } }; felder += ',userEnteredFormat.textFormat'; }
+    }
+    return { updateCells: { range: { sheetId, startRowIndex: zeile - 1, endRowIndex: zeile, startColumnIndex: spalte - 1, endColumnIndex: spalte }, rows: [{ values: [zelle] }], fields: felder } };
+  }
+
+  async function hinweiseSchreiben(id, info) {
+    info = info || await blaetter(id);
+    const anfragen = [];
+    const frei = v => !String(v || '').trim() || String(v).indexOf('Hinweis') === 0;
+    const monat = info.blaetter.find(s => /^Monats/i.test(s.title));
+    const spar = info.blaetter.find(b => /^Ersparnis/i.test(b.title));
+    const fin = info.blaetter.find(b => b.title === FIN_BLATT);
+    const bereiche = [];
+    if (monat) bereiche.push(q(monat.title) + '!B3');
+    if (spar) bereiche.push(q(spar.title) + '!B3');
+    if (fin) bereiche.push(q(fin.title) + '!U1');
+    const w = bereiche.length ? await werteHolen(id, bereiche, 'FORMATTED_VALUE') : [];
+    let i = 0;
+    const wert = () => { const r = w[i++] || []; return (r[0] || [])[0]; };
+    if (monat && frei(wert())) anfragen.push(notizZelle(monat.sheetId, 3, 2, HINWEIS, NOTIZ_TABELLE, true));
+    if (spar && frei(wert())) anfragen.push(notizZelle(spar.sheetId, 3, 2, HINWEIS, NOTIZ_TABELLE, true));
+    if (fin && frei(wert())) {
+      anfragen.push(notizZelle(fin.sheetId, 1, 21, 'Hinweis: Notiz in dieser Zelle lesen, bevor du hier etwas änderst.', NOTIZ_FINANZIERUNG, true));
+      anfragen.push(notizZelle(fin.sheetId, 1, 1, null, NOTIZ_FINANZIERUNG));
+    }
+    if (anfragen.length) await batch(id, anfragen);
+    return anfragen.length > 0;
+  }
+
   // Früheres Arbeitsblatt "Immobilienfinanzierung" (Test-Version bis 2026-10-16) entfernen, falls noch vorhanden.
   async function altesBlattEntfernen(id) {
     const info = await blaetter(id);
@@ -582,6 +644,7 @@
         formatVon(bereich(kopf + 1, kopf + 1, 2, 9), bereich(d1, d2, 2, 9)),
         formatVon(bereich(kopf + 1, kopf + 1, 4, 4), bereich(d1, d2, 10, 11)));
     }
+    anfragen.push(notizZelle(sid, z0 + 1, 2, null, NOTIZ_AUTO));
     EB.zellen(z0, gesamt).forEach(c => {
       const m = /^([A-Z]+)(\d+)$/.exec(c.a1), spalte = m[1].charCodeAt(0) - 64, zeile = Number(m[2]);
       const zelle = { userEnteredValue: c.f !== undefined ? { formulaValue: lokal(c.f, info.locale) } : { stringValue: String(c.v) } };
@@ -593,6 +656,7 @@
       anfragen.push({ updateCells: { range: bereich(zeile, zeile, spalte, spalte), rows: [{ values: [zelle] }], fields: felder } });
     });
     await batch(id, anfragen);
+    try { await hinweiseSchreiben(id, info); } catch (err) { console.warn('Hinweise nicht geschrieben', err); }
     try { await immobilienMonat(id, info); } catch (err) { console.warn('Immobilien-Block in der Monatsübersicht nicht angelegt', err); }
     return neu;
   }
@@ -635,18 +699,19 @@
     s.monate.forEach(m => zellen.push([m.spalte, lokal(EB.monatsFormel(sp(m.spalte), datum), info.locale)]));
     zellen.push([letzteSp + 1, lokal('=SUM(' + sp(erste) + zeile + ':' + sp(letzteSp) + zeile + ')', info.locale)]);
     zellen.push([letzteSp + 2, 'Tilgung bzw. Sparrate aufs Tilgungskonto, rechnet sich aus deinen Krediten (Blatt „Finanzierung“)']);
-    await batch(id, zellen.map(([c, v]) => ({
+    const anf = [notizZelle(sid, zeile, 3, null, NOTIZ_AUTO)];
+    await batch(id, anf.concat(zellen.map(([c, v]) => ({
       updateCells: {
         range: { sheetId: sid, startRowIndex: zeile - 1, endRowIndex: zeile, startColumnIndex: c - 1, endColumnIndex: c },
         rows: [{ values: [{ userEnteredValue: v.charAt(0) === '=' ? { formulaValue: v } : { stringValue: v } }] }], fields: 'userEnteredValue'
       }
-    })));
+    }))));
     return true;
   }
 
   window.Google = {
     TEST, anmelden, abmelden, tokenAusAdresse, token, restMinuten, nutzer, NichtAngemeldet,
     meineDateien, kandidaten, verbinden, ersterFinanzplaner, jahrAnlegen,
-    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, altesBlattEntfernen, immobilienErsparnis
+    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, altesBlattEntfernen, immobilienErsparnis, hinweiseSchreiben
   };
 })();

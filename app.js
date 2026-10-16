@@ -469,6 +469,9 @@
       $('hinweisVorlage').dataset.fehlend = fehlend.join('|');
       $('hinweisVorlage').hidden = false;
     } catch (err) { console.warn('Vorlage nicht geprüft', err); }
+    // Hinweise zum Bearbeiten einmal je Tabelle hineinschreiben
+    const hk = 'kosten.hinweise:' + dateien[jahr].id;
+    if (hole(hk) !== '1') G.hinweiseSchreiben(dateien[jahr].id).then(() => merke(hk, '1')).catch(err => console.warn('Hinweise nicht geschrieben', err));
   }
   $('hinweisJetzt').onclick = () => { $('hinweisVorlage').hidden = true; abgleichen(true); };
   $('hinweisSpaeter').onclick = () => {
