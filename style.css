@@ -133,3 +133,4 @@ input[type="month"]::-webkit-date-and-time-value { text-align:left; }
 .ampel { font-size:14px; padding:8px 10px; border-radius:10px; margin:6px 0; border:1px solid var(--line); }
 .ampel.gut { color:var(--accent); }
 .ampel.schlecht { color:var(--err); }
+#fSonderBox label { margin-top:14px; }

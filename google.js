@@ -502,17 +502,17 @@
   const FIN_BLATT = 'Finanzierung';
   const FIN_KOPF = ['Immobilie', 'Kaufpreis inkl. Nebenkosten', 'Eigenkapital', 'Kreditart', 'Bank', 'Darlehenssumme',
     'Sollzins % p.a.', 'Anfängliche Tilgung % p.a.', 'Monatsrate', 'Beginn (JJJJ-MM)', 'Zinsbindung (Jahre)', 'Sondertilgung % p.a.', 'Notiz', 'ID',
-    'Tilgungskonto Guthaben', 'Guthaben Stand (JJJJ-MM)', 'Tilgungskonto Sparrate / Monat', 'Tilgungskonto Zinsen % p.a.'];
-  const FIN_FELDER = ['immobilie', 'kaufpreis', 'eigenkapital', 'art', 'bank', 'summe', 'zins', 'tilgung', 'rate', 'beginn', 'bindung', 'sonder', 'notiz', 'id', 'guthaben', 'guthabenStand', 'sparrate', 'sparzins'];
+    'Tilgungskonto Guthaben', 'Guthaben Stand (JJJJ-MM)', 'Tilgungskonto Sparrate / Monat', 'Tilgungskonto Zinsen % p.a.', 'Laufzeit (Jahre)'];
+  const FIN_FELDER = ['immobilie', 'kaufpreis', 'eigenkapital', 'art', 'bank', 'summe', 'zins', 'tilgung', 'rate', 'beginn', 'bindung', 'sonder', 'notiz', 'id', 'guthaben', 'guthabenStand', 'sparrate', 'sparzins', 'laufzeit'];
 
   async function finanzierungLaden(id) {
     const info = await blaetter(id);
     if (!info.blaetter.find(b => b.title === FIN_BLATT)) return [];
-    const [z] = await werteHolen(id, [q(FIN_BLATT) + '!A2:R200'], 'UNFORMATTED_VALUE');
+    const [z] = await werteHolen(id, [q(FIN_BLATT) + '!A2:S200'], 'UNFORMATTED_VALUE');
     return z.filter(r => r && r[0]).map(r => {
       const d = {};
       FIN_FELDER.forEach((f, i) => { d[f] = r[i] === undefined ? '' : r[i]; });
-      ['kaufpreis', 'eigenkapital', 'summe', 'zins', 'tilgung', 'rate', 'bindung', 'sonder', 'guthaben', 'sparrate', 'sparzins'].forEach(f => { d[f] = Number(String(d[f]).replace(',', '.')) || 0; });
+      ['kaufpreis', 'eigenkapital', 'summe', 'zins', 'tilgung', 'rate', 'bindung', 'sonder', 'guthaben', 'sparrate', 'sparzins', 'laufzeit'].forEach(f => { d[f] = Number(String(d[f]).replace(',', '.')) || 0; });
       d.beginn = String(d.beginn); d.guthabenStand = String(d.guthabenStand); d.id = String(d.id || Math.random().toString(36).slice(2, 9));
       return d;
     });
@@ -523,9 +523,9 @@
     if (!info.blaetter.find(b => b.title === FIN_BLATT)) {
       await batch(id, [{ addSheet: { properties: { title: FIN_BLATT, gridProperties: { frozenRowCount: 1 } } } }]);
     }
-    await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(FIN_BLATT) + '!A2:R200') + ':clear', { method: 'POST', body: {} });
+    await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(FIN_BLATT) + '!A2:S200') + ':clear', { method: 'POST', body: {} });
     const zeilen = [FIN_KOPF].concat(liste.map(d => FIN_FELDER.map(f => d[f] === undefined ? '' : d[f])));
-    await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(FIN_BLATT) + '!A1:R' + zeilen.length) + '?valueInputOption=RAW', {
+    await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(FIN_BLATT) + '!A1:S' + zeilen.length) + '?valueInputOption=RAW', {
       method: 'PUT', body: { values: zeilen }
     });
   }

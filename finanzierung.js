@@ -11,6 +11,12 @@
     { name: 'Privatdarlehen / Sonstiges', typ: 'annuitaet', info: '' }
   ];
   const typ = d => (ARTEN.find(a => a.name === d.art) || ARTEN[0]).typ;
+  // Annuität für eine gewünschte Laufzeit in Jahren
+  function annuitaetAus(summe, zins, jahre) {
+    const r = zins / 1200, n = Math.round(jahre * 12);
+    if (!(summe > 0) || !(n > 0)) return 0;
+    return r ? summe * r / (1 - Math.pow(1 + r, -n)) : summe / n;
+  }
   // Zur Auswahl stehen nur noch diese beiden; ältere Einträge mit anderer Art werden weiter berechnet.
   const AUSWAHL = ['Annuitätendarlehen', 'Endfälliges Darlehen'];
   const jetztIndex = () => { const h = new Date(); return h.getFullYear() * 12 + h.getMonth(); };
@@ -248,7 +254,9 @@
       '<div class="zweispaltig"><div>' + feld('fKauf', 'Kaufpreis inkl. NK (€)', d.kaufpreis) + '</div><div>' + feld('fEk', 'Eigenkapital (€)', d.eigenkapital) + '</div></div>' +
       '<label for="fBank">Bank / Kreditgeber</label><input id="fBank" value="' + esc(d.bank || '') + '" autocomplete="off">' +
       '<div class="zweispaltig"><div>' + feld('fSumme', 'Kreditsumme (€)', d.summe) + '</div><div>' + feld('fZins', 'Sollzins (% p.a.)', d.zins) + '</div></div>' +
-      '<div id="fNurAnnu"><div class="zweispaltig"><div>' + feld('fRate', 'Annuität / Monat (€)', d.rate) + '</div><div>' + feld('fTilg', 'oder Tilgung (% p.a.)', d.tilgung) + '</div></div></div>' +
+      '<div id="fNurAnnu"><div class="sub">Trage die Annuität, die Laufzeit oder die anfängliche Tilgung ein. Den Rest rechnet die App aus.</div>' +
+      '<div class="zweispaltig"><div>' + feld('fRate', 'Annuität / Monat (€)', d.rate) + '</div><div>' + feld('fLaufzeit', 'Laufzeit (Jahre)', d.laufzeit, 'inputmode="decimal" autocomplete="off"') + '</div></div>' +
+      feld('fTilg', 'oder anfängliche Tilgung (% p.a.)', d.tilgung) + '</div>' +
       '<div class="sub" id="fRateInfo"></div>' +
       '<div class="zweispaltig"><div><label for="fBeginn">Erste Rate (Monat)</label><input id="fBeginn" type="month" value="' + esc(d.beginn || '') + '"></div>' +
       '<div>' + feld('fBind', 'Zinsbindung (Jahre)', d.bindung, 'inputmode="numeric" autocomplete="off"') + '</div></div>' +
@@ -298,6 +306,7 @@
         : (v.art === 'Annuitätendarlehen' ? 'Feste Monatsrate (Annuität). Sie teilt sich in Zinsen und Tilgung: Der Zinsanteil sinkt, die Tilgung steigt. Die Tilgung zählt als gedachte Ersparnis.' : (a ? a.info : ''));
       $('fNurAnnu').hidden = endf; $('fNurEndf').hidden = !endf; $('fSonderBox').hidden = endf;
       $('fBind').previousElementSibling.textContent = endf ? 'Laufzeit (Jahre)' : 'Zinsbindung (Jahre)';
+      if (!endf && v.laufzeit > 0 && !v.rate && !v.tilgung) v.rate = annuitaetAus(v.summe, v.zins, v.laufzeit);
       if (endf) {
         $('fRateInfo').textContent = v.summe && v.zins ? 'Zinsen pro Monat: ' + euro(v.summe * v.zins / 1200) : '';
         const p = Object.assign({}, v, { guthabenStand: monatWert(jetztIndex()) });
@@ -310,7 +319,10 @@
       } else {
         const r = v.summe && (v.zins || v.tilgung || v.rate) ? rateVon(Object.assign({}, v)) : 0;
         const z = v.summe * v.zins / 1200;
-        $('fRateInfo').textContent = r ? (v.rate ? 'Annuität ' : 'Berechnete Annuität ') + euro(r) + ': am Anfang ' + euro(z) + ' Zinsen und ' + euro(Math.max(0, r - z)) + ' Tilgung' : '';
+        const p = r ? plan(Object.assign({}, v, { rate: r })) : null;
+        const lz = p && p.deckt ? p.zeilen.length : 0;
+        $('fRateInfo').textContent = r ? (zahl($('fRate').value) ? 'Annuität ' : 'Berechnete Annuität ') + euro(r) + ': am Anfang ' + euro(z) + ' Zinsen und ' + euro(Math.max(0, r - z)) + ' Tilgung' +
+          (v.summe ? ' (' + pz(Math.max(0, r * 12 / v.summe * 100 - v.zins)) + ' Tilgung p.a.)' : '') + (lz ? '. Abbezahlt nach ' + jahreText(lz).replace(/\.$/, '') + '.' : '. Die Rate deckt die Zinsen nicht.') : '';
       }
     };
     const fImmo = $('fImmo');
@@ -318,6 +330,8 @@
       const i = immobilien(liste).find(x => x.name === fImmo.value.trim());
       if (i) { $('fKauf').value = i.kaufpreis ? String(i.kaufpreis).replace('.', ',') : ''; $('fEk').value = i.eigenkapital ? String(i.eigenkapital).replace('.', ',') : ''; }
     };
+    const drei = ['fRate', 'fLaufzeit', 'fTilg'];
+    drei.forEach(id => $(id).addEventListener('input', () => { if ($(id).value.trim()) drei.filter(x => x !== id).forEach(x => { $(x).value = ''; }); }));
     ziel.querySelectorAll('input, select').forEach(e => e.addEventListener('input', info));
     info();
     $('fAbbrechen').onclick = zeichne;
@@ -329,10 +343,13 @@
       if (endf) {
         if (!(v.zins > 0)) return meldung('Bitte den Sollzins eintragen.', 'fehler');
         if (!(v.bindung > 0)) return meldung('Bitte die Laufzeit bis zur Rückzahlung eintragen.', 'fehler');
-        v.rate = 0; v.tilgung = 0; v.sonder = 0;
+        v.rate = 0; v.tilgung = 0; v.sonder = 0; v.laufzeit = 0;
       } else {
-        if (!(v.tilgung > 0) && !(v.rate > 0)) return meldung('Bitte die Annuität (Monatsrate) oder die anfängliche Tilgung eintragen.', 'fehler');
+        if (!(v.tilgung > 0) && !(v.rate > 0) && !(v.laufzeit > 0)) return meldung('Bitte die Annuität, die Laufzeit oder die anfängliche Tilgung eintragen.', 'fehler');
+        // Aus der Laufzeit die Annuität berechnen und speichern (die Tabelle rechnet mit der Rate)
+        if (v.laufzeit > 0 && !(v.rate > 0) && !(v.tilgung > 0)) v.rate = Math.round(annuitaetAus(v.summe, v.zins, v.laufzeit) * 100) / 100;
         v.guthaben = 0; v.sparrate = 0; v.sparzins = 0; v.guthabenStand = '';
+        if (!(v.laufzeit > 0)) v.laufzeit = 0;
       }
       v.id = d.id || Date.now().toString(36);
       let neu = d.id ? liste.map(x => x.id === d.id ? v : x) : liste.concat([v]);
@@ -349,7 +366,7 @@
       art: $('fArt').value, bank: $('fBank').value.trim(), summe: zahl($('fSumme').value), zins: zahl($('fZins').value),
       tilgung: zahl($('fTilg').value), rate: zahl($('fRate').value), beginn: $('fBeginn').value,
       bindung: zahl($('fBind').value), sonder: zahl($('fSonder').value), notiz: $('fNotiz').value.trim(),
-      guthaben: zahl($('fGuthaben').value), sparrate: zahl($('fSparrate').value), sparzins: zahl($('fSparzins').value),
+      laufzeit: zahl($('fLaufzeit').value), guthaben: zahl($('fGuthaben').value), sparrate: zahl($('fSparrate').value), sparzins: zahl($('fSparzins').value),
       // Das Guthaben gilt ab dem aktuellen Monat; danach rechnet die App mit Sparrate und Zinsen weiter
       guthabenStand: monatWert(jetztIndex())
     };
