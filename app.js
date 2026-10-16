@@ -179,7 +179,7 @@
     const dash = modus === 'uebersicht', fin = modus === 'finanzierung';
     $('formular').hidden = dash || fin; $('verlauf').hidden = dash || fin; $('uebersicht').hidden = !dash; $('finanzierung').hidden = !fin;
     if (dash) { $('titel').textContent = 'Übersicht'; zeigeDashboard(); return; }
-    if (fin) { $('titel').textContent = 'Kredite & Ersparnis'; window.Finanzierung.zeige($('finanzierung'), dateien[jahr].id); return; }
+    if (fin) { $('titel').textContent = 'Immobilien'; window.Finanzierung.zeige($('finanzierung'), dateien[jahr].id); return; }
     $('titel').textContent = MODI[modus].titel;
     $('speichern').textContent = MODI[modus].knopf;
     meldung('');

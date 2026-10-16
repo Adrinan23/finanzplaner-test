@@ -281,7 +281,7 @@
     if (bl) bl.onclick = async () => {
       if (!confirm('Arbeitsblatt „Immobilienfinanzierung“ in deiner Tabelle neu aufbauen?\n\nDeine Darlehen bleiben erhalten. Nur was du im Arbeitsblatt selbst in gelbe Felder eingetragen hast, wird zurückgesetzt.')) return;
       bl.disabled = true; meldung('Baue das Arbeitsblatt auf …');
-      try { await window.Google.finanzierungsBlatt(dateiId, true); meldung('Das Arbeitsblatt „Immobilienfinanzierung“ ist neu aufgebaut.', 'ok'); }
+      try { await window.Google.finanzierungsBlatt(dateiId, true); await window.Google.immobilienErsparnis(dateiId); meldung('Das Arbeitsblatt „Immobilienfinanzierung“ und der Block „Immobilien“ in den Ersparnissen sind neu aufgebaut.', 'ok'); }
       catch (err) { meldung(err.message || String(err), 'fehler'); if (err instanceof window.Google.NichtAngemeldet) window.Google.anmelden(true); }
       bl.disabled = false;
     };
@@ -380,6 +380,9 @@
       // Arbeitsblatt "Immobilienfinanzierung" beim ersten Speichern anlegen (rechnet danach selbst mit)
       try { if (await window.Google.finanzierungsBlatt(dateiId, false)) text += ' Das Arbeitsblatt „Immobilienfinanzierung“ wurde in deiner Tabelle angelegt.'; }
       catch (err) { console.warn('Arbeitsblatt nicht angelegt', err); }
+      // Block "Immobilien" im Blatt "Ersparnisse - Rücklagen"
+      try { if (await window.Google.immobilienErsparnis(dateiId)) text += ' Im Blatt „Ersparnisse - Rücklagen“ steht jetzt der Block „Immobilien“.'; }
+      catch (err) { console.warn('Ersparnis-Block nicht angelegt', err); }
       zeichne();
       meldung(text, 'ok');
     } catch (err) {
@@ -393,10 +396,10 @@
     async zeige(container, id) {
       ziel = container;
       if (id !== dateiId) { liste = []; dateiId = id; }
-      if (!navigator.onLine) { ziel.innerHTML = '<div class="card"><div class="sub">Die Finanzierung braucht eine Internetverbindung.</div></div>'; return; }
+      if (!navigator.onLine) { ziel.innerHTML = '<div class="card"><div class="sub">Der Bereich Immobilien braucht eine Internetverbindung.</div></div>'; return; }
       if (laedt) return;
       laedt = true;
-      ziel.innerHTML = '<div class="card"><div class="sub">Lade Finanzierung …</div></div>';
+      ziel.innerHTML = '<div class="card"><div class="sub">Lade Immobilien …</div></div>';
       try { liste = await window.Google.finanzierungLaden(id); zeichne(); }
       catch (err) {
         ziel.innerHTML = '<div class="card"><div class="meldung fehler">' + esc(err.message || String(err)) + '</div></div>';

@@ -4,10 +4,11 @@ window.NEUIGKEITEN = [
   {
     id: '2026-10-16',
     punkte: [
-      'Kredite neu: Du wählst nur noch zwischen Annuitätendarlehen und endfälligem Darlehen.',
+      'Aus „Kredite“ wird „Immobilien“: Du wählst nur noch zwischen Annuitätendarlehen und endfälligem Darlehen.',
       'Beim Annuitätendarlehen trägst du die Annuität oder die Laufzeit in Jahren ein. Die App teilt sie in Zinsen (Kosten) und Tilgung (gedachte Ersparnis).',
       'Beim endfälligen Darlehen trägst du dein Tilgungskonto mit Guthaben und Sparrate ein. Die App zeigt, ob es am Ende für die Rückzahlung reicht.',
-      'Oben siehst du deine Ersparnis, deine gedachte Ersparnis, die Zinsen pro Monat und wie viel dir an der Immobilie schon gehört.'
+      'Oben siehst du deine Ersparnis, deine gedachte Ersparnis, die Zinsen pro Monat und wie viel dir an der Immobilie schon gehört.',
+      'In deiner Tabelle steht im Blatt „Ersparnisse - Rücklagen“ unter den Sparzielen ein neuer Block „Immobilien“ mit echter und gedachter Ersparnis.'
     ]
   },
   {

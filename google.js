@@ -570,9 +570,52 @@
     return true;
   }
 
+  // Block "Immobilien" im Blatt "Ersparnisse - Rücklagen" anlegen bzw. aktualisieren (Aufbau in ersparnisblock.js).
+  // Steht unter den Sparzielen; Formate werden von der Sparziel-Tabelle übernommen.
+  async function immobilienErsparnis(id) {
+    const EB = window.ErsparnisBlock;
+    const info = await blaetter(id);
+    const blatt = info.blaetter.find(b => /^Ersparnis/i.test(b.title));
+    if (!blatt || !info.blaetter.find(b => b.title === FIN_BLATT)) return false;
+    const [z] = await werteHolen(id, [q(blatt.title) + '!A1:L300'], 'FORMATTED_VALUE');
+    const text = (r, c) => String(((z[r] || [])[c]) || '').trim();
+    let z0 = z.findIndex((r, i) => text(i, 1) === EB.MARKE) + 1;
+    const neu = !z0;
+    if (neu) z0 = z.length + 2;
+    const kopf = z.findIndex((r, i) => i < z0 - 1 && (r || []).some(v => /Zielbestand/i.test(String(v)))) + 1;
+    const gesamt = z.findIndex((r, i) => i < z0 - 1 && /^Gesamt/i.test(text(i, 1))) + 1;
+    const sid = blatt.sheetId, g = blatt.gridProperties || {};
+    const anfragen = [];
+    const bisZeile = z0 + EB.ZEILEN;
+    if ((g.rowCount || 0) < bisZeile) anfragen.push({ appendDimension: { sheetId: sid, dimension: 'ROWS', length: bisZeile - (g.rowCount || 0) } });
+    if ((g.columnCount || 0) < 11) anfragen.push({ appendDimension: { sheetId: sid, dimension: 'COLUMNS', length: 11 - (g.columnCount || 0) } });
+    const bereich = (z1, z2, s1, s2) => ({ sheetId: sid, startRowIndex: z1 - 1, endRowIndex: z2, startColumnIndex: s1 - 1, endColumnIndex: s2 });
+    const formatVon = (quelle, ziel) => ({ copyPaste: { source: quelle, destination: ziel, pasteType: 'PASTE_FORMAT' } });
+    const kz = z0 + 2, d1 = kz + 1, d2 = kz + EB.MAX + 2;
+    if (kopf) {
+      // Überschriftzeile und Datenzeilen wie die Sparziel-Tabelle formatieren (J und K wie die Euro-Spalte D)
+      anfragen.push(formatVon(bereich(kopf, kopf, 2, 9), bereich(kz, kz, 2, 9)),
+        formatVon(bereich(kopf, kopf, 4, 4), bereich(kz, kz, 10, 11)),
+        formatVon(bereich(kopf + 1, kopf + 1, 2, 9), bereich(d1, d2, 2, 9)),
+        formatVon(bereich(kopf + 1, kopf + 1, 4, 4), bereich(d1, d2, 10, 11)));
+    }
+    EB.zellen(z0, gesamt).forEach(c => {
+      const m = /^([A-Z]+)(\d+)$/.exec(c.a1), spalte = m[1].charCodeAt(0) - 64, zeile = Number(m[2]);
+      const zelle = { userEnteredValue: c.f !== undefined ? { formulaValue: c.f } : { stringValue: String(c.v) } };
+      let felder = 'userEnteredValue';
+      if (c.fett || c.grau || (c.kopf && !kopf)) {
+        zelle.userEnteredFormat = { textFormat: { bold: !!(c.fett || c.kopf), italic: !!c.grau } };
+        felder += ',userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.italic';
+      }
+      anfragen.push({ updateCells: { range: bereich(zeile, zeile, spalte, spalte), rows: [{ values: [zelle] }], fields: felder } });
+    });
+    await batch(id, anfragen);
+    return neu;
+  }
+
   window.Google = {
     TEST, anmelden, abmelden, tokenAusAdresse, token, restMinuten, nutzer, NichtAngemeldet,
     meineDateien, kandidaten, verbinden, ersterFinanzplaner, jahrAnlegen,
-    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, finanzierungsBlatt
+    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, finanzierungsBlatt, immobilienErsparnis
   };
 })();
