@@ -148,7 +148,7 @@
       else if (aktuell && b === 'Zwischensumme') aktuell.zwischensumme = r + 1;
       else if (aktuell && b && c) {
         aktuell.posten.push({
-          name: b + ' - ' + c, kategorie: b, bezeichnung: c, zeile: r + 1, auto: /\(automatisch\)$/.test(c),
+          name: b + ' - ' + c, kategorie: b, bezeichnung: c, turnus: t(r, 3), zeile: r + 1, auto: /\(automatisch\)$/.test(c),
           werte: monate.map(m => Number((roh[r] || [])[m.spalte - 1]) || 0)
         });
       }
@@ -332,7 +332,7 @@
     return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds());
   }
 
-  // Haengt den Betrag an die Monatszellen von "monat" bis "bisMonat" an.
+  // Haengt den Betrag an die Monatszellen von "monat" bis "bisMonat" an, mit e.takt = 3 nur in jedem dritten Monat.
   // status.geschrieben wird gesetzt, sobald die Tabelle veraendert wird (fuer die Offline-Warteschlange).
   async function hinzufuegen(id, e, status) {
     const betrag = Math.round(Number(e.betrag) * 100) / 100;
@@ -340,20 +340,22 @@
     const info = await blaetter(id);
     const s = await struktur(id, info);
     const von = Number(e.monat), bis = Math.max(von, Math.min(12, Number(e.bisMonat) || von));
+    const takt = Math.max(1, Number(e.takt) || 1), liste = [];
+    for (let m = von; m <= bis; m += takt) liste.push(m);
     const alle = [].concat.apply([], s.bereiche.map(b => b.posten));
     const p = alle.find(x => x.zeile === Number(e.zeile) && x.name === e.posten) || alle.find(x => x.name === e.posten);
     if (!p) throw new Error('Posten nicht gefunden. Bitte App neu laden.');
 
     const refs = [];
-    for (let m = von; m <= bis; m++) refs.push(zelle(s.blatt.title, p.zeile, s.monate[m - 1].spalte));
+    liste.forEach(m => refs.push(zelle(s.blatt.title, p.zeile, s.monate[m - 1].spalte)));
     const formeln = await werteHolen(id, refs, 'FORMULA');
 
     // Formel bauen. Je nach Sprache der Tabelle wird "12.5" oder "12,5" als Zahl gelesen;
     // deshalb mit dem passenden Dezimalzeichen schreiben, pruefen und notfalls das andere versuchen.
     function bauePlan(sep) {
       const plan = [];
-      for (let m = von; m <= bis; m++) {
-        const roh = formeln[m - von].length ? formeln[m - von][0][0] : '';
+      liste.forEach((m, i) => {
+        const roh = formeln[i].length ? formeln[i][0][0] : '';
         const dazu = betrag < 0 ? zahl(betrag, sep) : '+' + zahl(betrag, sep);
         let vorher, nachher;
         if (roh === '' || roh === null || roh === undefined) { vorher = ''; nachher = betrag; }
@@ -361,7 +363,7 @@
         else if (String(roh).charAt(0) === '=') { vorher = roh; nachher = roh + dazu; }
         else throw new Error('Die Zelle im ' + s.monate[m - 1].name + ' enthält Text und wird nicht verändert.');
         plan.push({ m: m, spalte: s.monate[m - 1].spalte, vorher: vorher, nachher: nachher, erwartet: (p.werte[m - 1] || 0) + betrag });
-      }
+      });
       return plan;
     }
 

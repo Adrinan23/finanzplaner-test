@@ -106,7 +106,7 @@
     const pi = $('posten').value, bi = $('bereich').value;
     daten = struktur;
     if (modus === 'uebersicht') { zeigeDashboard(); zeigeVerlauf(verlauf); return; }
-    fuelleBereiche(); $('bereich').value = bi; fuellePosten(); $('posten').value = pi; zeigeBisher();
+    fuelleBereiche(); $('bereich').value = bi; fuellePosten(); $('posten').value = pi; zeigeBisher(); taktVorschlagen();
     zeigeVerlauf(verlauf);
   }
 
@@ -161,6 +161,7 @@
     const gemerkt = hole('posten:' + b.name);
     if (gemerkt !== null && gemerkt < b.posten.length && !b.posten[gemerkt].auto) sel.value = gemerkt;
     zeigeBisher();
+    taktVorschlagen();
   }
 
   function fuelleBereiche() {
@@ -210,7 +211,28 @@
   $('dashMonat').onchange = zeigeDashboard;
 
   $('bereich').onchange = function () { merke('bereich:' + modus, this.value); fuellePosten(); };
-  $('posten').onchange = function () { merke('posten:' + bereich().name, this.value); zeigeBisher(); };
+  $('posten').onchange = function () { merke('posten:' + bereich().name, this.value); zeigeBisher(); taktVorschlagen(); };
+
+  // Vierteljaehrliche Posten (Turnus „Quartalsweise“, z. B. GEZ): Wiederholen alle 3 Monate bis Dezember vorschlagen
+  function vierteljaehrlich(p) { return !!p && /quartal|viertelj/i.test(p.turnus || ''); }
+  function taktVorschlagen() {
+    const p = posten(), quartal = vierteljaehrlich(p);
+    $('takt').value = quartal ? '3' : '1';
+    if (quartal && Number($('monat').value) <= 9) { $('wiederholen').checked = true; $('bisMonat').value = '12'; }
+    else if (!quartal) $('wiederholen').checked = false;
+    fuelleBisMonat();
+  }
+  function wiederholenZuruecksetzen() {
+    $('betrag').value = ''; $('wiederholen').checked = false; $('bisFeld').hidden = true;
+    taktVorschlagen();
+  }
+  // Monate, in die eingetragen wird: von m bis bis, im Abstand takt
+  function zielMonate(m, bis, takt) { const l = []; for (let i = m; i <= bis; i += takt) l.push(i); return l; }
+  function zeitraumText(m, bis, takt) {
+    if (bis <= m) return '';
+    if (takt > 1) return zielMonate(m, bis, takt).map(i => daten.monate[i - 1].name).join(', ');
+    return daten.monate[m - 1].name + ' bis ' + daten.monate[bis - 1].name;
+  }
 
   function fuelleBisMonat() {
     const von = Number($('monat').value), sel = $('bisMonat'), alt = Number(sel.value) || 12;
@@ -222,7 +244,7 @@
     $('bisFeld').hidden = !$('wiederholen').checked;
   }
   $('wiederholen').onchange = function () { $('bisFeld').hidden = !this.checked; };
-  $('monat').onchange = () => { zeigeBisher(); fuelleBisMonat(); };
+  $('monat').onchange = () => { zeigeBisher(); taktVorschlagen(); };
 
   // ---------- Verlauf ----------
 
@@ -240,8 +262,8 @@
       li.className = 'wartend' + (e.fehler ? ' problem' : '');
       li.innerHTML = '<div class="info"><div class="posten"></div><div class="sub"></div></div><div class="betrag"></div>';
       li.querySelector('.posten').textContent = e.posten;
-      const bis = e.bisMonat > e.monat ? ' bis ' + daten.monate[e.bisMonat - 1].name : '';
-      li.querySelector('.sub').textContent = daten.monate[e.monat - 1].name + bis + ' · ' + (e.fehler ? 'Nicht eingetragen: ' + e.fehler : 'wartet auf Internet');
+      const zr = zeitraumText(e.monat, e.bisMonat, Number(e.takt) || 1) || daten.monate[e.monat - 1].name;
+      li.querySelector('.sub').textContent = zr + ' · ' + (e.fehler ? 'Nicht eingetragen: ' + e.fehler : 'wartet auf Internet');
       li.querySelector('.betrag').textContent = (einnahme[e.posten] ? '+ ' : '− ') + euro(e.betrag);
       const b = document.createElement('button'); b.className = 'undo'; b.textContent = 'Löschen';
       b.onclick = () => {
@@ -291,17 +313,18 @@
     const p = posten(), m = Number($('monat').value);
     if (!p) return;
     const bis = $('wiederholen').checked ? Number($('bisMonat').value) : m;
+    const takt = $('wiederholen').checked ? Number($('takt').value) || 1 : 1;
     if (bis > m) {
       const belegt = [];
-      for (let i = m; i <= bis; i++) if (p.werte[i - 1]) belegt.push(daten.monate[i - 1].name);
-      let text = euro(betrag) + ' bei „' + p.name + '“ in jedem Monat von ' + daten.monate[m - 1].name + ' bis ' + daten.monate[bis - 1].name + ' eintragen?';
+      zielMonate(m, bis, takt).forEach(i => { if (p.werte[i - 1]) belegt.push(daten.monate[i - 1].name); });
+      let text = euro(betrag) + ' bei „' + p.name + '“ ' + (takt > 1 ? 'in ' + zeitraumText(m, bis, takt) : 'in jedem Monat von ' + daten.monate[m - 1].name + ' bis ' + daten.monate[bis - 1].name) + ' eintragen?';
       if (belegt.length) text += '\n\nAchtung: In ' + belegt.join(', ') + ' ist schon etwas eingetragen. Der Betrag wird dort dazugerechnet.';
       if (!confirm(text)) return;
     }
-    const eintrag = { monat: m, bisMonat: bis, zeile: p.zeile, posten: p.name, betrag: betrag };
+    const eintrag = { monat: m, bisMonat: bis, takt: takt, zeile: p.zeile, posten: p.name, betrag: betrag };
     const vormerken = () => {
       inWarteschlange(eintrag);
-      $('betrag').value = ''; $('wiederholen').checked = false; $('bisFeld').hidden = true;
+      wiederholenZuruecksetzen();
       meldung('Offline gespeichert: ' + euro(betrag) + ' · ' + p.name + '. Wird eingetragen, sobald du wieder Internet hast.', 'ok');
       zeigeVerlauf(letzterVerlauf);
       $('speichern').disabled = false;
@@ -312,9 +335,9 @@
     try {
       const r = await G.hinzufuegen(dateien[jahr].id, eintrag, status);
       Object.keys(r.neueWerte).forEach(k => { p.werte[k - 1] = r.neueWerte[k]; });
-      $('betrag').value = ''; $('wiederholen').checked = false; $('bisFeld').hidden = true;
+      wiederholenZuruecksetzen();
       zeigeBisher();
-      const zeitraum = bis > m ? ' · ' + daten.monate[m - 1].name + ' bis ' + daten.monate[bis - 1].name : '';
+      const zeitraum = bis > m ? ' · ' + zeitraumText(m, bis, takt) : '';
       meldung('Gespeichert: ' + euro(betrag) + ' · ' + p.name + zeitraum, 'ok');
       zeigeVerlauf(r.verlauf);
     } catch (err) {

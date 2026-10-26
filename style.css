@@ -32,6 +32,7 @@ button.link { border:0; background:none; color:var(--accent); font:inherit; font
 label.check { display:flex; align-items:center; gap:8px; margin:0; font-size:15px; color:var(--text); cursor:pointer; }
 label.check input { width:22px; height:22px; margin:0; accent-color:var(--accent); }
 #bisFeld { display:flex; align-items:center; gap:8px; font-size:15px; }
+#bisFeld { flex-wrap:wrap; }
 #bisFeld select { width:auto; padding:8px 10px; font-size:15px; }
 ul { list-style:none; margin:0; padding:0; }
 li { display:flex; gap:10px; align-items:center; padding:10px 0; border-top:1px solid var(--line); }

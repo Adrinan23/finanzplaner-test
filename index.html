@@ -66,8 +66,8 @@
     <label for="betrag">Betrag (€)</label>
     <input id="betrag" inputmode="decimal" placeholder="0,00" autocomplete="off">
     <div class="wiederholen">
-      <label class="check"><input type="checkbox" id="wiederholen"> Monatlich wiederholen</label>
-      <span id="bisFeld" hidden>bis <select id="bisMonat"></select></span>
+      <label class="check"><input type="checkbox" id="wiederholen"> Wiederholen</label>
+      <span id="bisFeld" hidden><select id="takt"><option value="1">jeden Monat</option><option value="3">alle 3 Monate</option></select> bis <select id="bisMonat"></select></span>
     </div>
     <button class="haupt" id="speichern" disabled>Hinzufügen</button>
     <div class="meldung" id="meldung"></div>
@@ -95,7 +95,7 @@
     <a id="tabelleLink" target="_blank" rel="noopener">Meine Tabelle öffnen</a>
     <button class="link" id="vorlageAbgleich">Neue Zeilen aus Vorlage übernehmen</button>
     <button class="link" id="abmelden">Abmelden</button>
-    <span class="sub">Version 2026-10-16k</span>
+    <span class="sub">Version 2026-10-26</span>
   </div>
 </main>
 

@@ -2,6 +2,13 @@
 // Neue Eintraege oben anfuegen. Gibt es nichts Neues, erscheint keine Meldung.
 window.NEUIGKEITEN = [
   {
+    id: '2026-10-26',
+    punkte: [
+      'Wiederholen geht jetzt auch „alle 3 Monate“. Bei vierteljährlichen Posten wie dem Rundfunkbeitrag (GEZ) ist das schon vorausgewählt: Trägst du im Januar ein, landet der Betrag auch im April, Juli und Oktober.',
+      'Neue Posten in der Vorlage: „Rente“ und „Zusatzversorgungskasse (ZVK)“ bei den Einnahmen, „Kids“ bei Abonnements, Verträge & Finanzen. Übernimm sie mit „Jetzt übernehmen“.'
+    ]
+  },
+  {
     id: '2026-10-16b',
     punkte: [
       'Die Zinsen deiner Immobilienkredite stehen jetzt automatisch bei den Fixkosten (Bereich Wohnen) in der Zeile „Zinsen Immobilienkredit (automatisch)“. Damit ist die ganze Kreditrate im Saldo: Zinsen als Fixkosten, Tilgung als Sparbeitrag.'
