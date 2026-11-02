@@ -601,7 +601,9 @@
       if (p.auto) return;
       const bereich = { sheetId: s.blatt.sheetId, startRowIndex: p.zeile - 1, endRowIndex: p.zeile, startColumnIndex: spalte - 1, endColumnIndex: spalte };
       anfragen.push({ setDataValidation: { range: bereich, rule: regel } });
-      if (/VARIABLE/i.test(b.name) && /^\s*monatlich\s*$|^\s*$/i.test(p.turnus || '')) {
+      const schwankend = /VARIABLE/i.test(b.name) ||
+        (/EINNAHMEN/i.test(b.name) && /dividend|zinsen|verkäuf|rückerstatt|bonus|sonderzahl|freelance|selbstständ|geldgeschenk|cashback|prämie/i.test(p.bezeichnung));
+      if (schwankend && /^\s*monatlich\s*$|^\s*$/i.test(p.turnus || '')) {
         anfragen.push({ updateCells: { range: bereich, rows: [{ values: [{ userEnteredValue: { stringValue: 'Variabel' } }] }], fields: 'userEnteredValue' } });
       }
     }));
