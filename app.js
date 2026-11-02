@@ -214,14 +214,7 @@
   $('posten').onchange = function () { merke('posten:' + bereich().name, this.value); zeigeBisher(); taktVorschlagen(); };
 
   // Abstand in Monaten aus dem Turnus der Zeile, z. B. „Quartalsweise“ (GEZ) = 3, „Halbjährlich“ = 6; sonst 1
-  function taktAusTurnus(p) {
-    const t = p ? String(p.turnus || '') : '';
-    if (/zweimonat|alle 2 monat/i.test(t)) return 2;
-    if (/quartal|viertelj/i.test(t)) return 3;
-    if (/alle 4 monat/i.test(t)) return 4;
-    if (/halbj/i.test(t)) return 6;
-    return 1;
-  }
+  function taktAusTurnus(p) { return G.taktAusTurnus(p ? p.turnus : '') || 1; }
   // Bei solchen Posten Wiederholen im passenden Abstand bis Dezember vorschlagen
   function taktVorschlagen() {
     const takt = taktAusTurnus(posten());
@@ -329,7 +322,8 @@
       if (belegt.length) text += '\n\nAchtung: In ' + belegt.join(', ') + ' ist schon etwas eingetragen. Der Betrag wird dort dazugerechnet.';
       if (!confirm(text)) return;
     }
-    const eintrag = { monat: m, bisMonat: bis, takt: takt, zeile: p.zeile, posten: p.name, betrag: betrag };
+    // Beim Wiederholen den Turnus in Spalte D mitschreiben (wie bei der Auswahl direkt in der Tabelle)
+    const eintrag = { monat: m, bisMonat: bis, takt: takt, turnus: bis > m, zeile: p.zeile, posten: p.name, betrag: betrag };
     const vormerken = () => {
       inWarteschlange(eintrag);
       wiederholenZuruecksetzen();
@@ -343,6 +337,7 @@
     try {
       const r = await G.hinzufuegen(dateien[jahr].id, eintrag, status);
       Object.keys(r.neueWerte).forEach(k => { p.werte[k - 1] = r.neueWerte[k]; });
+      if (r.turnus) p.turnus = r.turnus;
       wiederholenZuruecksetzen();
       zeigeBisher();
       const zeitraum = bis > m ? ' · ' + zeitraumText(m, bis, takt) : '';

@@ -182,6 +182,38 @@
     }
     return aus;
   }
+  // Turnus (Spalte D) <-> Abstand in Monaten; gleiche Regeln wie das Turnus-Skript der Tabelle
+  const AUTO_NOTIZ = 'Automatisch (Turnus)';
+  const TURNUS_TEXT = { 1: 'Monatlich', 2: 'alle 2 Monate', 3: 'Quartalsweise', 4: 'alle 4 Monate', 6: 'Halbjährlich' };
+  function taktAusTurnus(text) {
+    const t = String(text || '').toLowerCase();
+    if (/variabel/.test(t)) return 0;
+    if (/zweimonat|alle 2 monat/.test(t)) return 2;
+    if (/quartal|viertelj/.test(t)) return 3;
+    if (/alle 4 monat/.test(t)) return 4;
+    if (/halbj/.test(t)) return 6;
+    if (/^\s*monatlich/.test(t)) return 1;
+    return 0;
+  }
+  function updateText(sheetId, zeile, spalte, text) {
+    return {
+      updateCells: {
+        range: { sheetId: sheetId, startRowIndex: zeile - 1, endRowIndex: zeile, startColumnIndex: spalte - 1, endColumnIndex: spalte },
+        rows: [{ values: [{ userEnteredValue: { stringValue: text } }] }],
+        fields: 'userEnteredValue'
+      }
+    };
+  }
+  function notiz(sheetId, zeile, spalte, text) {
+    return {
+      updateCells: {
+        range: { sheetId: sheetId, startRowIndex: zeile - 1, endRowIndex: zeile, startColumnIndex: spalte - 1, endColumnIndex: spalte },
+        rows: [{ values: [{ note: text }] }],
+        fields: 'note'
+      }
+    };
+  }
+
   function updateZelle(sheetId, zeile, spalte, inhalt) {
     return {
       updateCells: {
@@ -391,12 +423,20 @@
         '\n(Erwartet ' + plan[0].erwartet + ', Formel ' + plan[0].nachher + ', Tabellensprache ' + (info.locale || '?') + ')');
     }
 
+    // Zusammenspiel mit dem Turnus-Skript der Tabelle: beim Wiederholen den Turnus in Spalte D setzen und
+    // die Folgemonate, die vorher leer waren, als automatisch markieren (Notiz wie beim Skript).
+    // Alle anderen beschriebenen Zellen gelten als selbst eingetragen (Notiz weg).
+    const extra = plan.map((x, i) => notiz(s.blatt.sheetId, p.zeile, x.spalte, e.turnus && i > 0 && x.vorher === '' ? AUTO_NOTIZ : ''));
+    const neuerTurnus = e.turnus && (taktAusTurnus(p.turnus) !== takt || !p.turnus) ? (TURNUS_TEXT[takt] || 'Monatlich') : null;
+    if (neuerTurnus) extra.push(updateText(s.blatt.sheetId, p.zeile, s.monate[0].spalte - 1, neuerTurnus));
+    await batch(id, extra);
+
     await logBlatt(id, info);
     await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(LOG_BLATT) + '!A:I') + ':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS', {
       method: 'POST',
       body: { values: plan.map(x => [jetztText(), s.monate[x.m - 1].name, p.name, betrag, p.zeile, x.spalte, "'" + x.vorher, "'" + String(x.nachher), '']) }
     });
-    return { neueWerte: neueWerte, verlauf: await verlauf(id) };
+    return { neueWerte: neueWerte, turnus: neuerTurnus, verlauf: await verlauf(id) };
   }
 
   async function rueckgaengig(id, logZeile) {
@@ -409,7 +449,9 @@
     const aktuell = await formelHolen(id, zelle(s.blatt.title, zeile, spalte));
     const passt = nachher.charAt(0) === '=' ? String(aktuell) === nachher : Number(aktuell) === Number(nachher);
     if (!passt) throw new Error('Die Zelle wurde inzwischen weiter geändert. Bitte direkt in der Tabelle korrigieren.');
-    await batch(id, [updateZelle(s.blatt.sheetId, zeile, spalte, vorher === '' ? '' : (vorher.charAt(0) === '=' ? vorher : Number(vorher)))]);
+    const zurueck = [updateZelle(s.blatt.sheetId, zeile, spalte, vorher === '' ? '' : (vorher.charAt(0) === '=' ? vorher : Number(vorher)))];
+    if (vorher === '') zurueck.push(notiz(s.blatt.sheetId, zeile, spalte, ''));
+    await batch(id, zurueck);
     await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(LOG_BLATT) + '!I' + logZeile) + '?valueInputOption=RAW', { method: 'PUT', body: { values: [['rueckgaengig']] } });
     return { verlauf: await verlauf(id), struktur: await struktur(id) };
   }
@@ -733,6 +775,6 @@
   window.Google = {
     TEST, anmelden, abmelden, tokenAusAdresse, token, restMinuten, nutzer, NichtAngemeldet,
     meineDateien, kandidaten, verbinden, ersterFinanzplaner, jahrAnlegen,
-    struktur, verlauf, blaetter, hinzufuegen, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, altesBlattEntfernen, immobilienErsparnis, hinweiseSchreiben
+    struktur, verlauf, blaetter, hinzufuegen, taktAusTurnus, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, altesBlattEntfernen, immobilienErsparnis, hinweiseSchreiben
   };
 })();
