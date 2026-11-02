@@ -157,7 +157,7 @@
     const b = bereich(), sel = $('posten');
     sel.innerHTML = '';
     // Zeilen mit „(automatisch)“ rechnen sich selbst und werden nicht zum Eintragen angeboten
-    b.posten.forEach((p, i) => { if (!p.auto) sel.add(new Option(p.bezeichnung + ' (' + p.kategorie + ')', i)); });
+    b.posten.forEach((p, i) => { if (!p.auto) sel.add(new Option(p.bezeichnung, i)); });
     const gemerkt = hole('posten:' + b.name);
     if (gemerkt !== null && gemerkt < b.posten.length && !b.posten[gemerkt].auto) sel.value = gemerkt;
     zeigeBisher();
