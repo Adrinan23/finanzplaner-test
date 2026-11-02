@@ -109,6 +109,9 @@ details[open] .pfeil { transform:rotate(90deg); }
 .hinweis-tipp { margin-top:8px; }
 .overlay { position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; padding:16px; }
 .dialog { width:100%; max-width:420px; margin:0; max-height:85vh; overflow:auto; }
+.anleitung { max-height:90vh; overflow-y:auto; }
+.anleitung ol { margin:8px 0 12px; padding-left:22px; }
+.anleitung ol li { display:list-item; list-style:decimal; border:0; padding:0; margin:0 0 10px; font-size:15px; line-height:1.4; }
 #neuigkeitenListe li { display:list-item; list-style:disc; margin-left:20px; padding:6px 0; border:0; font-size:15px; }
 #offlineBalken { position:sticky; top:0; z-index:19; background:#4b5563; color:#fff; text-align:center; font-size:13px; padding:6px 8px; }
 li.wartend .posten::after { content:' · wartet'; color:var(--muted); font-size:12px; font-weight:400; }

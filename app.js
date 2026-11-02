@@ -526,7 +526,18 @@
     try { await G.turnusSkriptMerken(dateien[jahr].id); $('hinweisSkript').hidden = true; meldung('Alles klar, die Turnus-Automatik ist vermerkt.', 'ok'); }
     catch (err) { fehler(err, 'meldungSkript'); }
   };
-  $('skriptJetzt').onclick = async function () {
+  // Vor der ersten Einrichtung Schritt fuer Schritt erklaeren, was passiert
+  function zeigeSkriptAnleitung(weiter) {
+    $('skriptAnleitung').hidden = false;
+    $('skriptLos').onclick = () => { $('skriptAnleitung').hidden = true; merke('kosten.skriptErklaert', '1'); if (weiter) weiter(); };
+    $('skriptAbbrechen').onclick = () => { $('skriptAnleitung').hidden = true; };
+  }
+  $('skriptWie').onclick = () => zeigeSkriptAnleitung(null);
+  $('skriptJetzt').onclick = function () {
+    if (hole('kosten.skriptErklaert') !== '1') zeigeSkriptAnleitung(() => skriptEinrichten.call(this));
+    else skriptEinrichten.call(this);
+  };
+  async function skriptEinrichten() {
     this.disabled = true;
     meldung('Richte die Turnus-Automatik ein …', '', 'meldungSkript');
     try {
@@ -546,7 +557,7 @@
       } else fehler(err, 'meldungSkript');
     }
     this.disabled = false;
-  };
+  }
 
   $('vorlageAbgleich').onclick = () => abgleichen(false);
 
