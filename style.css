@@ -139,3 +139,24 @@ input[type="month"]::-webkit-date-and-time-value { text-align:left; }
 .ampel.schlecht { color:var(--err); }
 #fSonderBox label { margin-top:14px; }
 #fAnnuHinweis { margin-bottom:6px; } #fRateInfo { font-weight:600; }
+
+/* ---------- Weitere / Konten-Auswahl ---------- */
+.card.menue { padding:4px 16px; }
+button.eintrag { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; text-align:left; border:0; border-top:1px solid var(--line);
+  background:none; color:var(--text); font:inherit; padding:14px 0; cursor:pointer; }
+button.eintrag:first-child { border-top:0; }
+button.eintrag .sub { display:block; margin-top:2px; font-size:13px; }
+.pfeil { font-size:24px; color:var(--muted); line-height:1; }
+h2.abschnitt { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:20px 4px 8px; }
+button.zurueck { padding:0 0 10px; font-size:15px; text-decoration:none; }
+#kontenAuswahl label.check { margin-top:14px; }
+.konto { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--line); cursor:pointer; margin:0; font-size:15px; color:var(--text); }
+.konto:first-of-type { border-top:0; }
+.konto span { flex:1; min-width:0; }
+.konto .zaehler { flex:none; font-size:12px; color:var(--muted); }
+.schalter { appearance:none; -webkit-appearance:none; flex:none; width:46px; height:28px; padding:0; border-radius:14px; border:0; background:var(--viz-frei); position:relative; cursor:pointer; transition:background .15s; }
+.schalter::after { content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transition:left .15s; }
+.schalter:checked { background:var(--accent); }
+.schalter:checked::after { left:21px; }
+.bereichKopf { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.bereichKopf button.link { padding:0; font-size:13px; white-space:nowrap; }
