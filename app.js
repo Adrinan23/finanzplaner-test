@@ -498,11 +498,12 @@
       const fehlend = await G.fehlendeAusVorlage(dateien[jahr].id);
       let weg = null;
       try { weg = sessionStorage.getItem('kosten.hinweisWeg'); } catch (e) { }
-      if (!fehlend.length || weg === fehlend.join('|')) return;
+      if (fehlend.length && weg !== fehlend.join('|')) {
       $('hinweisText').textContent = 'Neue Posten verfügbar: ' + fehlend.join(', ') +
         '. Du kannst sie jetzt in deine Tabelle übernehmen. Deine Einträge und Beträge bleiben dabei vollständig erhalten.';
       $('hinweisVorlage').dataset.fehlend = fehlend.join('|');
       $('hinweisVorlage').hidden = false;
+      }
     } catch (err) { console.warn('Vorlage nicht geprüft', err); }
     pruefeSkript();
     // Hinweise zum Bearbeiten einmal je Tabelle hineinschreiben
