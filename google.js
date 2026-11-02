@@ -5,6 +5,8 @@
 (function () {
   const CFG = window.KOSTEN_CONFIG;
   const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
+  // Nur fuer die Turnus-Automatik, wird erst beim Einrichten zusaetzlich angefragt
+  const SKRIPT_SCOPE = 'https://www.googleapis.com/auth/script.projects';
   const LOG_BLATT = 'Eingaben';
   const DRIVE = 'https://www.googleapis.com/drive/v3';
   const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -24,12 +26,12 @@
 
   function redirectUri() { return location.origin + location.pathname.replace(/index\.html$/, ''); }
 
-  function anmelden(still) {
+  function anmelden(still, zusatz) {
     const p = new URLSearchParams({
       client_id: CFG.CLIENT_ID,
       redirect_uri: redirectUri(),
       response_type: 'token',
-      scope: SCOPES,
+      scope: zusatz ? SCOPES + ' ' + zusatz : SCOPES,
       include_granted_scopes: 'true',
       state: 'kosten'
     });
@@ -555,6 +557,60 @@
     return ergebnis;
   }
 
+  // ---------- Turnus-Automatik (Apps Script in der Tabelle) ----------
+  // Das Skript (turnus-skript.gs) verteilt Betraege bei Eingaben direkt in der Tabelle nach dem Turnus.
+  // Die App legt es ueber die Apps-Script-API als an die Tabelle gebundenes Projekt an. Ein Merkmal
+  // (Developer Metadata) in der Tabelle zeigt, dass es eingerichtet ist; es wandert bei Kopien
+  // (neues Jahr) zusammen mit dem Skript mit.
+  const SKRIPT_MERKMAL = 'finanzplanerTurnusSkript';
+  const SKRIPT_VERSION = '3';
+  const SCRIPT_API = 'https://script.googleapis.com/v1/projects';
+  const TURNUS_LISTE = ['Variabel', 'Monatlich', 'alle 2 Monate', 'Quartalsweise', 'alle 4 Monate', 'Halbjährlich', 'Jährlich'];
+
+  async function turnusSkriptVersion(id) {
+    const d = await api(SHEETS + '/' + id + '?fields=developerMetadata(metadataKey,metadataValue)');
+    const m = (d.developerMetadata || []).find(x => x.metadataKey === SKRIPT_MERKMAL);
+    return m ? m.metadataValue : null;
+  }
+
+  // Merkmal setzen, ohne ein Skript anzulegen (wenn es schon von Hand eingefuegt wurde)
+  async function turnusSkriptMerken(id) {
+    await batch(id, [{ createDeveloperMetadata: { developerMetadata: {
+      metadataKey: SKRIPT_MERKMAL, metadataValue: SKRIPT_VERSION, location: { spreadsheet: true }, visibility: 'DOCUMENT'
+    } } }]);
+  }
+
+  async function turnusSkriptEinrichten(id) {
+    const code = await (await fetch('turnus-skript.gs', { cache: 'no-cache' })).text();
+    if (code.indexOf('function onEdit') < 0) throw new Error('Skript-Datei nicht gefunden.');
+    const projekt = await api(SCRIPT_API, { method: 'POST', body: { title: 'Turnus-Automatik', parentId: id } });
+    await api(SCRIPT_API + '/' + projekt.scriptId + '/content', {
+      method: 'PUT',
+      body: { files: [
+        { name: 'appsscript', type: 'JSON', source: JSON.stringify({ timeZone: 'Europe/Berlin', runtimeVersion: 'V8', exceptionLogging: 'STACKDRIVER' }) },
+        { name: 'Turnus', type: 'SERVER_JS', source: code }
+      ] }
+    });
+    // Auswahlliste in Spalte D fuer alle Posten; variable Kosten auf „Variabel“ stellen,
+    // damit „Monatlich“ dort nicht jeden Einkauf in alle Monate kopiert
+    const s = await struktur(id);
+    const spalte = s.monate[0].spalte - 1;
+    const regel = { condition: { type: 'ONE_OF_LIST', values: TURNUS_LISTE.map(v => ({ userEnteredValue: v })) }, strict: false, showCustomUi: true };
+    const anfragen = [];
+    s.bereiche.forEach(b => b.posten.forEach(p => {
+      if (p.auto) return;
+      const bereich = { sheetId: s.blatt.sheetId, startRowIndex: p.zeile - 1, endRowIndex: p.zeile, startColumnIndex: spalte - 1, endColumnIndex: spalte };
+      anfragen.push({ setDataValidation: { range: bereich, rule: regel } });
+      if (/VARIABLE/i.test(b.name) && /^\s*monatlich\s*$|^\s*$/i.test(p.turnus || '')) {
+        anfragen.push({ updateCells: { range: bereich, rows: [{ values: [{ userEnteredValue: { stringValue: 'Variabel' } }] }], fields: 'userEnteredValue' } });
+      }
+    }));
+    anfragen.push({ createDeveloperMetadata: { developerMetadata: {
+      metadataKey: SKRIPT_MERKMAL, metadataValue: SKRIPT_VERSION, location: { spreadsheet: true }, visibility: 'DOCUMENT'
+    } } });
+    await batch(id, anfragen);
+  }
+
   // ---------- Finanzierung (Immobilienkredite) ----------
   // Eigenes Blatt "Finanzierung": eine Zeile pro Darlehen. Wird beim Anlegen eines neuen Jahres mitkopiert.
   const FIN_BLATT = 'Finanzierung';
@@ -775,6 +831,6 @@
   window.Google = {
     TEST, anmelden, abmelden, tokenAusAdresse, token, restMinuten, nutzer, NichtAngemeldet,
     meineDateien, kandidaten, verbinden, ersterFinanzplaner, jahrAnlegen,
-    struktur, verlauf, blaetter, hinzufuegen, taktAusTurnus, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, altesBlattEntfernen, immobilienErsparnis, hinweiseSchreiben
+    SKRIPT_SCOPE, struktur, verlauf, blaetter, hinzufuegen, taktAusTurnus, turnusSkriptVersion, turnusSkriptEinrichten, turnusSkriptMerken, rueckgaengig, vorlageAbgleichen, fehlendeAusVorlage, sparziele, finanzierungLaden, finanzierungSpeichern, altesBlattEntfernen, immobilienErsparnis, hinweiseSchreiben
   };
 })();

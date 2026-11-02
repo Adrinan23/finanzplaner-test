@@ -6,6 +6,7 @@ window.NEUIGKEITEN = [
     punkte: [
       'Wiederholen geht jetzt auch alle 2, 3, 4 oder 6 Monate. Bei vierteljährlichen Posten wie dem Rundfunkbeitrag (GEZ) ist „alle 3 Monate“ schon vorausgewählt: Trägst du im Januar ein, landet der Betrag auch im April, Juli und Oktober.',
       'Wiederholst du einen Betrag, trägt die App den passenden Turnus (z. B. „Quartalsweise“) auch in Spalte D deiner Tabelle ein.',
+      'Neu: Turnus-Automatik für deine Tabelle. Ein Tipp auf „Jetzt einrichten“ genügt, dann verteilen sich Beträge auch beim Eintragen direkt in der Tabelle nach dem Turnus in Spalte D.',
       'Neue Posten in der Vorlage: „Rente“ und „Zusatzversorgungskasse (ZVK)“ bei den Einnahmen, „Kids“ bei Abonnements, Verträge & Finanzen, „Geschenke“ bei Freizeit & Persönliches. Übernimm sie mit „Jetzt übernehmen“.'
     ]
   },
