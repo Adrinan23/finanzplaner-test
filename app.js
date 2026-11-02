@@ -213,13 +213,21 @@
   $('bereich').onchange = function () { merke('bereich:' + modus, this.value); fuellePosten(); };
   $('posten').onchange = function () { merke('posten:' + bereich().name, this.value); zeigeBisher(); taktVorschlagen(); };
 
-  // Vierteljaehrliche Posten (Turnus „Quartalsweise“, z. B. GEZ): Wiederholen alle 3 Monate bis Dezember vorschlagen
-  function vierteljaehrlich(p) { return !!p && /quartal|viertelj/i.test(p.turnus || ''); }
+  // Abstand in Monaten aus dem Turnus der Zeile, z. B. „Quartalsweise“ (GEZ) = 3, „Halbjährlich“ = 6; sonst 1
+  function taktAusTurnus(p) {
+    const t = p ? String(p.turnus || '') : '';
+    if (/zweimonat|alle 2 monat/i.test(t)) return 2;
+    if (/quartal|viertelj/i.test(t)) return 3;
+    if (/alle 4 monat/i.test(t)) return 4;
+    if (/halbj/i.test(t)) return 6;
+    return 1;
+  }
+  // Bei solchen Posten Wiederholen im passenden Abstand bis Dezember vorschlagen
   function taktVorschlagen() {
-    const p = posten(), quartal = vierteljaehrlich(p);
-    $('takt').value = quartal ? '3' : '1';
-    if (quartal && Number($('monat').value) <= 9) { $('wiederholen').checked = true; $('bisMonat').value = '12'; }
-    else if (!quartal) $('wiederholen').checked = false;
+    const takt = taktAusTurnus(posten());
+    $('takt').value = String(takt);
+    if (takt > 1 && Number($('monat').value) + takt <= 12) { $('wiederholen').checked = true; $('bisMonat').value = '12'; }
+    else $('wiederholen').checked = false;
     fuelleBisMonat();
   }
   function wiederholenZuruecksetzen() {
