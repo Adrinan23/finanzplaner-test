@@ -12,6 +12,7 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="stylesheet" href="style.css">
+<script>try { var t = localStorage.getItem('kosten.darstellung'); if (t === 'hell' || t === 'dunkel') document.documentElement.dataset.theme = t === 'hell' ? 'light' : 'dark'; } catch (e) { }</script>
 </head>
 <body>
 <div id="testBalken" hidden>TESTVERSION – arbeitet nur mit Testkopien</div>
@@ -109,6 +110,10 @@
     <h2 class="abschnitt">Einstellungen</h2>
     <div class="card menue">
       <button class="eintrag" id="zuKonten"><span><b>Konten-Auswahl</b><span class="sub" id="kontenZahl">Wähle, welche Posten du in der App siehst</span></span><span class="pfeil">›</span></button>
+      <div class="darstellung">
+        <div style="padding-top:14px"><b>Darstellung</b><span class="sub" style="display:block;margin-top:2px;font-size:13px">Hell, dunkel oder wie dein Gerät eingestellt ist</span></div>
+        <div class="segment" id="darstellung"><button data-wert="hell">Hell</button><button data-wert="dunkel">Dunkel</button><button data-wert="system">System</button></div>
+      </div>
     </div>
   </div>
 
@@ -131,7 +136,7 @@
     <a id="tabelleLink" target="_blank" rel="noopener">Meine Tabelle öffnen</a>
     <button class="link" id="vorlageAbgleich">Neue Zeilen aus Vorlage übernehmen</button>
     <button class="link" id="abmelden">Abmelden</button>
-    <span class="sub">Version 2026-11-02j</span>
+    <span class="sub">Version 2026-11-02k</span>
   </div>
 </main>
 

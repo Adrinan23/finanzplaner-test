@@ -224,6 +224,16 @@
     const n = auswahl.aus.length;
     $('kontenZahl').textContent = n ? n + ' Posten ausgeschaltet' : 'Wähle, welche Posten du in der App siehst';
   }
+  // Darstellung: hell, dunkel oder wie das Geraet (nur auf diesem Geraet gespeichert)
+  function setzeDarstellung(w) {
+    if (w === 'hell') document.documentElement.dataset.theme = 'light';
+    else if (w === 'dunkel') document.documentElement.dataset.theme = 'dark';
+    else { w = 'system'; delete document.documentElement.dataset.theme; }
+    merke('kosten.darstellung', w);
+    document.querySelectorAll('#darstellung button').forEach(b => b.classList.toggle('aktiv', b.dataset.wert === w));
+  }
+  document.querySelectorAll('#darstellung button').forEach(b => { b.onclick = () => setzeDarstellung(b.dataset.wert); });
+  setzeDarstellung(hole('kosten.darstellung') || 'system');
   $('zuImmobilien').onclick = () => { setzeModus('finanzierung'); window.scrollTo(0, 0); };
   $('zuKonten').onclick = () => { setzeModus('konten'); window.scrollTo(0, 0); };
   $('kontenZurueck').onclick = () => { setzeModus('weitere'); window.scrollTo(0, 0); };
