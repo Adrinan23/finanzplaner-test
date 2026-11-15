@@ -250,10 +250,17 @@
       box.appendChild(b);
     });
     const neu = document.createElement('button'); neu.className = 'eintrag'; neu.type = 'button';
-    neu.innerHTML = '<span><b>Neue Tabelle anlegen</b><span class="sub">Privat oder für einen Verein</span></span><span class="pfeil">›</span>';
+    neu.innerHTML = '<span><b>Neue Tabelle anlegen</b><span class="sub">Privat oder für einen Verein – nicht für ein neues Jahr</span></span><span class="pfeil">›</span>';
     neu.onclick = () => einrichten(null, true);
     box.appendChild(neu);
     $('vereinHinweis').hidden = !(verein() && reihe().eigen);
+    $('jahrHinweis').textContent = jahrHinweisText();
+  }
+  // Neues Jahr = oben ueber die Jahreszahl, nicht ueber "Neue Tabelle anlegen"
+  function jahrHinweisText() {
+    const naechstes = Math.max(Number(jahr) || 0, new Date().getFullYear()) + 1;
+    if (!darfAendern()) return 'Neues Jahr? Das legt der Kassenwart für den Verein an. Danach kannst du es oben über die Jahreszahl auswählen.';
+    return 'Neues Jahr? Dafür brauchst du keine neue Tabelle: Tippe oben auf die Jahreszahl und wähle „' + naechstes + ' (neu)“. Die App legt das Jahr aus deiner Tabelle an, mit denselben Posten' + (verein() ? ' und denselben Freigaben.' : '.');
   }
 
   async function wechsleTabelle(key) {
@@ -660,6 +667,9 @@
     meldung('', '', 'meldungEinrichten');
     const hatPrivat = G.reihen().some(r => r.art === 'privat');
     $('artPrivat').hidden = hatPrivat;
+    $('jahrHinweisEinrichten').hidden = !zusaetzlich;
+    if (zusaetzlich) $('jahrHinweisEinrichten').textContent = (hatPrivat ? 'Einen privaten Finanzplaner hast du schon, hier kannst du deshalb nur noch eine Vereinstabelle anlegen. ' : '') +
+      'Für ein neues Jahr brauchst du keine neue Tabelle: Geh zurück und tippe oben auf die Jahreszahl.';
     $('name').value = ((user && user.displayName) || hole('kosten.name') || '').split(' ')[0];
     $('kandidaten').innerHTML = '';
     setzeNeueArt(hatPrivat ? 'verein' : 'privat');

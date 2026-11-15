@@ -181,3 +181,4 @@ button.zurueck { padding:0 0 10px; font-size:15px; text-decoration:none; }
 button.eintrag.aktiv .pfeil { color:var(--accent); }
 #artWahl { margin-top:10px; }
 #kontenNurLesen { margin:8px 0 4px; }
+.hinweisBox { border:1px solid var(--accent); border-radius:10px; padding:10px 12px; margin:8px 0 12px; font-size:14px; }
