@@ -174,3 +174,10 @@ button.zurueck { padding:0 0 10px; font-size:15px; text-decoration:none; }
 .betragZeile select { width:auto; flex:none; font-size:16px; font-weight:600; }
 #umrechnung { font-size:13px; margin-top:6px; }
 #umrechnung.fehler { color:var(--err); }
+
+/* Tabellen (privat / Verein) */
+.tabelleName { margin:-6px 0 10px; font-size:13px; }
+.abschnittText { margin:-4px 4px 14px; font-size:13px; }
+button.eintrag.aktiv .pfeil { color:var(--accent); }
+#artWahl { margin-top:10px; }
+#kontenNurLesen { margin:8px 0 4px; }
