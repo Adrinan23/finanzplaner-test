@@ -41,6 +41,8 @@
     const hint = lies('kosten.email');
     if (hint) p.set('login_hint', hint);
     if (still) p.set('prompt', 'none');
+    // Nach dem Abmelden (keine E-Mail gemerkt) immer die Kontoauswahl zeigen, damit man ein anderes Konto nehmen kann
+    else if (!hint) p.set('prompt', 'select_account');
     location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p.toString());
   }
 
