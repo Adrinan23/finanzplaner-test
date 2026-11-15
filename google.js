@@ -343,8 +343,8 @@
     if (log) return log;
     const r = await batch(id, [{ addSheet: { properties: { title: LOG_BLATT, gridProperties: { frozenRowCount: 1 } } } }]);
     log = r.replies[0].addSheet.properties;
-    await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(LOG_BLATT) + '!A1:I1') + '?valueInputOption=RAW', {
-      method: 'PUT', body: { values: [['Zeitpunkt', 'Monat', 'Posten', 'Betrag', 'Zeile', 'Spalte', 'Formel vorher', 'Formel nachher', 'Status']] }
+    await api(SHEETS + '/' + id + '/values/' + encodeURIComponent(q(LOG_BLATT) + '!A1:J1') + '?valueInputOption=RAW', {
+      method: 'PUT', body: { values: [['Zeitpunkt', 'Monat', 'Posten', 'Betrag', 'Zeile', 'Spalte', 'Formel vorher', 'Formel nachher', 'Status', 'Fremdwährung']] }
     });
     return log;
   }
