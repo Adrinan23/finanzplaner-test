@@ -133,6 +133,10 @@
         <div class="segment" id="darstellung"><button data-wert="hell">Hell</button><button data-wert="dunkel">Dunkel</button><button data-wert="system">System</button></div>
       </div>
     </div>
+    <h2 class="abschnitt">Hilfe</h2>
+    <div class="card menue">
+      <button class="eintrag" id="zuFeedback"><span><b>Feedback oder Fehler melden</b><span class="sub">Etwas klappt nicht oder du hast eine Idee?</span></span><span class="pfeil">›</span></button>
+    </div>
   </div>
 
   <!-- Konten-Auswahl -->
@@ -155,7 +159,7 @@
     <a id="tabelleLink" target="_blank" rel="noopener">Tabelle öffnen</a>
     <button class="link" id="vorlageAbgleich">Neue Zeilen aus Vorlage übernehmen</button>
     <button class="link" id="abmelden">Abmelden</button>
-    <span class="sub">Version 2026-11-15x</span>
+    <span class="sub">Version 2026-11-15y</span>
   </div>
 </main>
 
@@ -165,6 +169,20 @@
     <h2 id="neuigkeitenTitel">Neu in der App</h2>
     <ul id="neuigkeitenListe"></ul>
     <button class="haupt" id="neuigkeitenOk">Verstanden</button>
+  </div>
+</div>
+
+<!-- Feedback und Fehler melden -->
+<div id="feedback" class="overlay" hidden>
+  <div class="card dialog" role="dialog" aria-labelledby="feedbackTitel">
+    <h2 id="feedbackTitel">Feedback oder Fehler melden</h2>
+    <div class="segment" id="feedbackArt"><button data-wert="fehler">Fehler</button><button data-wert="idee">Idee</button><button data-wert="sonstiges">Sonstiges</button></div>
+    <textarea id="feedbackText" rows="6"></textarea>
+    <div class="sub" id="feedbackInfo" style="white-space:pre-line;margin-top:8px;font-size:13px"></div>
+    <button class="haupt" id="feedbackMail">Per E-Mail senden</button>
+    <button class="zweit" id="feedbackKopieren">Text kopieren</button>
+    <button class="zweit" id="feedbackAbbrechen">Schließen</button>
+    <div class="meldung" id="meldungFeedback"></div>
   </div>
 </div>
 
@@ -220,6 +238,7 @@
 <script src="ersparnisblock.js"></script>
 <script src="finanzierung.js"></script>
 <script src="neuigkeiten.js"></script>
+<script src="feedback.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
